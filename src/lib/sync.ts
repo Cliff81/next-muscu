@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { api } from "../../convex/_generated/api";
 import { createLocalStore } from "@/lib/createLocalStore";
 import { profileStore } from "@/lib/profile";
+import { repairStrings } from "@/lib/repairProgram";
 import { programStore } from "@/lib/stores";
 import type { Program } from "@/lib/types";
 
@@ -37,7 +38,7 @@ export function useSync(): void {
   useEffect(() => {
     if (!isAuthenticated || remoteProgram === undefined || remoteProgram === null) return;
     if (remoteProgram.updatedAt <= syncedAtStore.get()) return;
-    programStore.set(remoteProgram.program as Program);
+    programStore.set(repairStrings(remoteProgram.program as Program));
     syncedAtStore.set(remoteProgram.updatedAt);
   }, [isAuthenticated, remoteProgram]);
 

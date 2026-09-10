@@ -112,6 +112,20 @@ body {
   min-height: 100vh;
   /* Cases à cocher et curseurs natifs sur la couleur de l'application. */
   accent-color: var(--accent);
+  /*
+   * En application installée le viewport est déclaré « cover » : le contenu
+   * passe sous l'encoche et sous l'indicateur d'accueil s'il n'est pas décalé.
+   * Sur un écran sans zone sûre, ces valeurs valent zéro.
+   */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* L'en-tête est le premier élément : c'est son fond qui doit remplir la
+   hauteur de la barre d'état, pas celui de la page. */
+header {
+  padding-top: env(safe-area-inset-top);
 }
 
 /* Les chiffres s'alignent en colonne dans les tableaux de séance. */

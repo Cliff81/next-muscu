@@ -51,10 +51,18 @@ function Candidates({
 }) {
   const [query, setQuery] = useState("");
 
-  /** La fiche catalogue de l'exercice en place, quand le programme la connaît. */
+  /**
+   * La fiche catalogue de l'exercice en place. Le repli par nom couvre les
+   * programmes générés avant que l'identifiant catalogue y soit porté : sans
+   * lui, le sélecteur ne saurait pas sur quel groupe musculaire filtrer et
+   * proposerait le catalogue entier.
+   */
   const inPlaceEntry = useMemo(
-    () => catalog.find((e) => e.id === current.catalogId) ?? null,
-    [catalog, current.catalogId]
+    () =>
+      catalog.find((e) => e.id === current.catalogId) ??
+      catalog.find((e) => e.name === current.name) ??
+      null,
+    [catalog, current.catalogId, current.name]
   );
 
   const targets = useMemo(() => {

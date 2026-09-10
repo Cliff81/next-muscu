@@ -10,6 +10,15 @@ function modeFor(path: string): Mode {
 }
 
 /**
+ * Couleur de la barre d'état en application installée. Le manifeste n'en porte
+ * qu'une : c'est ici que le second visage prend la sienne.
+ */
+const THEME_COLORS: Record<Mode, string> = {
+  stronger: "#0e0f13",
+  healthier: "#f6f8f4",
+};
+
+/**
  * Pose le visage courant sur `<html>`, d'après la route.
  *
  * Dans un effet, et non pendant le rendu : écrire dans le DOM pendant le
@@ -25,7 +34,11 @@ export function ModeBridge() {
   const path = usePathname();
 
   useEffect(() => {
-    document.documentElement.dataset.mode = modeFor(path);
+    const mode = modeFor(path);
+    document.documentElement.dataset.mode = mode;
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", THEME_COLORS[mode]);
   }, [path]);
 
   return null;
