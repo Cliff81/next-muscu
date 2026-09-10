@@ -41,6 +41,34 @@
  * de sport est sombre et acide. Contrastes vérifiés, aucun couple encre/fond
  * sous 4,5:1 sur les huit fonds.
  */
+:root[data-mode="better"] {
+  color-scheme: dark;
+
+  /*
+   * Visage de la progression : une nuit bleutée plutôt que le noir de
+   * Stronger, avec un azur qui se lit bien en courbe. Distinct des deux autres
+   * au premier regard, ce qui est tout l'intérêt de changer de visage.
+   */
+  --bg: #0c1020;
+  --surface: #141a2e;
+  --surface2: #1c2440;
+  --surface3: #26304f;
+  --border: #212a45;
+  --border2: #38456a;
+  --text: #e8ecf7;
+  --muted: #a3aecb;
+  --accent: #5eb8ff;
+  --accent-fg: #0c1020;
+  --accent2: #ffb45e;
+  --pos: #5fe0a0;
+  --warn: #f5b93f;
+  --neg: #ff7a6b;
+  --accent-soft: #16243c;
+  --pos-soft: #12251c;
+  --neg-soft: #2a1815;
+  --calm-soft: #161c30;
+}
+
 :root[data-mode="healthier"] {
   color-scheme: light;
 

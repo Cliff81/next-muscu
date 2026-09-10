@@ -78,21 +78,57 @@ export function LeafMark({ className = "" }: { className?: string }) {
   );
 }
 
+/**
+ * Marque de Better : une courbe qui monte.
+ *
+ * J'avais écarté ce motif pour Stronger — trois barres ascendantes disaient
+ * « statistiques » et non « force ». Ici c'est précisément le propos de la
+ * page : ce qu'on y regarde, c'est une progression. Le motif est donc juste,
+ * au même endroit où il était faux.
+ */
+export function TrendMark({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M3 17.5 L9 11 L13.5 15 L21 6.5" />
+      <path d="M15.5 6.5 H21 V12" />
+    </svg>
+  );
+}
+
+type BrandMode = "stronger" | "healthier" | "better";
+
+const BRAND_WORDS: Record<BrandMode, [string, string]> = {
+  stronger: ["Strong", "er"],
+  healthier: ["Health", "ier"],
+  better: ["Bett", "er"],
+};
+
 /** Pastille et nom du visage demandé. */
-export function Brand({ mode = "stronger" }: { mode?: "stronger" | "healthier" }) {
-  const healthier = mode === "healthier";
+export function Brand({ mode = "stronger" }: { mode?: BrandMode }) {
+  const [debut, fin] = BRAND_WORDS[mode];
   return (
     <span className="flex items-center gap-2">
       <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-accent text-accent-fg">
-        {healthier ? (
+        {mode === "healthier" ? (
           <LeafMark className="size-[62%]" />
+        ) : mode === "better" ? (
+          <TrendMark className="size-[58%]" />
         ) : (
           <LogoMark className="size-[62%]" />
         )}
       </span>
       <span className="font-display text-xl leading-none tracking-[0.02em]">
-        {healthier ? "Health" : "Strong"}
-        <span className="text-accent">{healthier ? "ier" : "er"}</span>
+        {debut}
+        <span className="text-accent">{fin}</span>
       </span>
     </span>
   );

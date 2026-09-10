@@ -3,10 +3,12 @@
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
-export type Mode = "stronger" | "healthier";
+export type Mode = "stronger" | "healthier" | "better";
 
 function modeFor(path: string): Mode {
-  return path.startsWith("/nutrition") ? "healthier" : "stronger";
+  if (path.startsWith("/nutrition")) return "healthier";
+  if (path.startsWith("/progress")) return "better";
+  return "stronger";
 }
 
 /**
@@ -16,6 +18,7 @@ function modeFor(path: string): Mode {
 const THEME_COLORS: Record<Mode, string> = {
   stronger: "#0e0f13",
   healthier: "#f6f8f4",
+  better: "#0c1020",
 };
 
 /**
