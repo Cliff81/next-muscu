@@ -6,11 +6,13 @@ import { api } from "../../convex/_generated/api";
 import { createLocalStore } from "@/lib/createLocalStore";
 import { profileStore } from "@/lib/profile";
 import { activitiesSchema } from "@/lib/activitiesSchema";
+import { parseHistory } from "@/lib/historySchema";
+import { mergeWorkouts } from "@/lib/mergeWorkouts";
 import type { Activity, NeatLevel } from "@/lib/activities";
 import { NEAT_LEVELS } from "@/lib/activities";
 import { repairStrings } from "@/lib/repairProgram";
-import { activitiesStore, neatStore, programStore } from "@/lib/stores";
-import type { Program } from "@/lib/types";
+import { activitiesStore, historyStore, neatStore, programStore } from "@/lib/stores";
+import type { Program, SessionLog } from "@/lib/types";
 
 /**
  * Synchronisation locale-d'abord.
@@ -31,13 +33,16 @@ export function useSync(): void {
 
   const remoteProgram = useQuery(api.programs.get, isAuthenticated ? {} : "skip");
   const remoteProfile = useQuery(api.profiles.get, isAuthenticated ? {} : "skip");
+  const remoteWorkouts = useQuery(api.workouts.list, isAuthenticated ? {} : "skip");
   const saveProgram = useMutation(api.programs.save);
   const saveProfile = useMutation(api.profiles.save);
+  const saveWorkout = useMutation(api.workouts.save);
 
   const localProgram = programStore.useValue();
   const localProfile = profileStore.useValue();
   const localActivities = activitiesStore.useValue();
   const localNeat = neatStore.useValue();
+  const localHistory = historyStore.useValue();
 
   // --- descente : le distant est plus récent que ce qu'on a déjà vu
   useEffect(() => {
@@ -74,6 +79,30 @@ export function useSync(): void {
       neatStore.set(remoteProfile.neat as NeatLevel);
     }
   }, [isAuthenticated, remoteProfile]);
+
+  /*
+   * --- séances réalisées : union par identifiant, dans les deux sens.
+   *
+   * Une séance terminée ne change plus : il n'y a donc rien à arbitrer, ce qui
+   * manque d'un côté est simplement ajouté. C'est plus sûr que la règle du
+   * programme, où deux versions du même objet peuvent s'affronter.
+   */
+  useEffect(() => {
+    if (!isAuthenticated || remoteWorkouts === undefined) return;
+
+    const distantes = (parseHistory(remoteWorkouts) ?? []) as SessionLog[];
+    const { toStore, toPush } = mergeWorkouts(localHistory, distantes);
+
+    if (toStore) {
+      historyStore.set(toStore);
+      return;
+    }
+    for (const seance of toPush) {
+      void saveWorkout({ log: seance }).catch(() => {
+        // Hors ligne : on retentera au prochain changement ou à l'ouverture.
+      });
+    }
+  }, [isAuthenticated, localHistory, remoteWorkouts, saveWorkout]);
 
   // --- remontée du profil : les mensurations, le reste vient du jeton
   useEffect(() => {

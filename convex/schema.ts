@@ -57,7 +57,15 @@ export default defineSchema({
     subject: v.string(),
     log: v.any(),
     completedAt: v.number(),
+    /*
+     * Identifiant de la séance, recopié du journal pour être indexable. C'est
+     * lui qui rend l'écriture idempotente : deux appareils qui remontent la
+     * même séance produisent une ligne, pas deux. Facultatif pour que d'anciennes
+     * lignes sans ce champ restent valides.
+     */
+    logId: v.optional(v.string()),
   })
     .index("by_subject", ["subject"])
-    .index("by_subject_and_date", ["subject", "completedAt"]),
+    .index("by_subject_and_date", ["subject", "completedAt"])
+    .index("by_subject_and_log", ["subject", "logId"]),
 });

@@ -1,5 +1,6 @@
 import { defaultProgram } from "@/data/defaultProgram";
 import { activitiesSchema } from "@/lib/activitiesSchema";
+import { parseHistory } from "@/lib/historySchema";
 import { NEAT_LEVELS, type Activity, type NeatLevel } from "@/lib/activities";
 import { createLocalStore } from "@/lib/createLocalStore";
 import { programSchema } from "@/lib/programSchema";
@@ -14,7 +15,9 @@ export const programStore = createLocalStore<Program>(
     return r.success ? repairStrings(r.data as Program) : null;
   }
 );
-export const historyStore = createLocalStore<SessionLog[]>("muscu:history", []);
+export const historyStore = createLocalStore<SessionLog[]>("muscu:history", [], (value) =>
+  parseHistory(value) as SessionLog[] | null
+);
 export const activeSessionStore = createLocalStore<SessionLog | null>("muscu:activeSession", null);
 
 /** Sports pratiqués en plus du programme, saisis par la personne. */
