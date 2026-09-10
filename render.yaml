@@ -7,7 +7,9 @@ services:
     plan: free
     region: frankfurt
     branch: main
-    buildCommand: npm ci && npm run build
+    # `convex deploy` pousse les fonctions vers le déploiement de production
+    # puis lance le build Next avec NEXT_PUBLIC_CONVEX_URL pointant sur lui.
+    buildCommand: npm ci && npx convex deploy --cmd 'npm run build'
     startCommand: npm run start
     envVars:
       - key: NODE_VERSION
@@ -24,3 +26,9 @@ services:
       # tableau de bord Render.
       - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
         value: 952117094432-mghvoe87atorgdomv6oj3k9rttqt8maa.apps.googleusercontent.com
+      # Clé de déploiement Convex. Celle-ci est un **vrai secret**, contrairement
+      # à l'identifiant client ci-dessus : elle autorise à pousser du code sur le
+      # backend. D'où `sync: false` — à saisir dans le tableau de bord Render,
+      # jamais dans le dépôt. À créer côté Convex : Settings > Deploy keys.
+      - key: CONVEX_DEPLOY_KEY
+        sync: false
