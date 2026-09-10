@@ -1,0 +1,26 @@
+# Déploiement Render — décrit ici plutôt que saisi dans l'interface, pour que
+# la configuration suive le dépôt.
+services:
+  - type: web
+    name: stronger
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Identifiant client OAuth. Il est lu au moment du *build* (préfixe
+      # NEXT_PUBLIC_), donc il doit être présent dès la construction, pas
+      # seulement au démarrage.
+      #
+      # Cette valeur est publique par construction : elle est de toute façon
+      # embarquée dans le JavaScript envoyé à chaque visiteur. Ce n'est pas un
+      # secret, et le flux navigateur de Google n'en utilise aucun — c'est
+      # l'origine autorisée qui protège. Si tu préfères la sortir du dépôt,
+      # remplace la ligne `value:` par `sync: false` et saisis-la dans le
+      # tableau de bord Render.
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        value: 952117094432-mghvoe87atorgdomv6oj3k9rttqt8maa.apps.googleusercontent.com
