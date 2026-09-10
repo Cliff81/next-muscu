@@ -14,6 +14,7 @@ type FlatStep = {
   exerciseSub?: string;
   exerciseTip?: string;
   exerciseDemo?: string;
+  exerciseImages?: string[];
   sectionTitle: string;
   setIndex: number;
   series: number;
@@ -42,6 +43,7 @@ function buildFlatSteps(day: Day): FlatStep[] {
         exerciseSub: ex.sub,
         exerciseTip: ex.tip,
         exerciseDemo: ex.demo,
+        exerciseImages: ex.images,
         sectionTitle: section.title,
         setIndex: i,
         series: ex.series,
@@ -172,7 +174,11 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h3 className="font-display flex items-center gap-2 text-2xl">
               {currentStep.exerciseName}
-              <ExerciseDemo name={currentStep.exerciseName} demo={currentStep.exerciseDemo} />
+              <ExerciseDemo
+                name={currentStep.exerciseName}
+                images={currentStep.exerciseImages}
+                demo={currentStep.exerciseDemo}
+              />
             </h3>
             <div className="font-display text-lg text-accent">
               Série {currentStep.setIndex + 1}/{currentStep.series}
@@ -267,7 +273,11 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
                   >
                     <span className="flex items-center gap-1.5 text-[0.82rem] text-text">
                       {exerciseDef.name}
-                      <ExerciseDemo name={exerciseDef.name} demo={exerciseDef.demo} />
+                      <ExerciseDemo
+                        name={exerciseDef.name}
+                        images={exerciseDef.images}
+                        demo={exerciseDef.demo}
+                      />
                     </span>
                     <div className="flex gap-1.5">
                       {log.sets.map((set) => {

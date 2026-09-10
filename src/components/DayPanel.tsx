@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { ExerciseDemo } from "@/components/ExerciseDemo";
-import { activeSessionStore } from "@/lib/stores";
+import { ExercisePicker } from "@/components/ExercisePicker";
+import type { CatalogExercise } from "@/lib/catalog";
+import { activeSessionStore, programStore } from "@/lib/stores";
+import { swapExercise } from "@/lib/swapExercise";
 import type { Day } from "@/lib/types";
 
 export function DayPanel({ day }: { day: Day }) {
@@ -10,6 +13,12 @@ export function DayPanel({ day }: { day: Day }) {
   const hasActiveSession = Boolean(
     activeSession && activeSession.dayId === day.id && !activeSession.finishedAt
   );
+
+  // Écrire dans le magasin suffit : la synchronisation observe le programme et
+  // remonte le changement d'elle-même.
+  const replaceExercise = (exerciseId: string, replacement: CatalogExercise) => {
+    programStore.set(swapExercise(programStore.get(), day.id, exerciseId, replacement));
+  };
 
   return (
     <div className="animate-fade">
@@ -59,7 +68,16 @@ export function DayPanel({ day }: { day: Day }) {
                 <div className="text-[0.9rem] font-medium">
                   <span className="inline-flex items-center gap-1.5">
                     {exercise.name}
-                    <ExerciseDemo name={exercise.name} demo={exercise.demo} />
+                    <ExerciseDemo
+                      name={exercise.name}
+                      images={exercise.images}
+                      demo={exercise.demo}
+                    />
+                    <ExercisePicker
+                      current={exercise}
+                      muscles={section.muscles}
+                      onChoose={(replacement) => replaceExercise(exercise.id, replacement)}
+                    />
                   </span>
                   {exercise.sub && <div className="mt-0.5 text-[0.72rem] text-muted">{exercise.sub}</div>}
                 </div>

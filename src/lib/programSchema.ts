@@ -10,11 +10,14 @@ const exerciseSchema = z.object({
   restSeconds: z.number().int().nonnegative(),
   tip: z.string().optional(),
   demo: z.string().optional(),
+  catalogId: z.string().optional(),
+  images: z.array(z.string()).optional(),
 });
 
 const sectionSchema = z.object({
   title: z.string().min(1),
   exercises: z.array(exerciseSchema).min(1),
+  muscles: z.array(z.string()).optional(),
 });
 
 const restInfoSchema = z.object({

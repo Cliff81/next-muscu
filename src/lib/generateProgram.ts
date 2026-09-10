@@ -20,7 +20,7 @@ import {
 import { MUSCLE_LABELS, EQUIPMENT_LABELS } from "@/lib/catalog";
 import type { Day, Exercise, Program, Section } from "@/lib/types";
 
-export type ProgramType = "fullbody" | "hautbas" | "ppl" | "split" | "endurance";
+export type ProgramType = "fullbody" | "upperlower" | "ppl" | "split" | "endurance";
 
 export const PROGRAM_TYPES: { id: ProgramType; name: string; summary: string; days: number[] }[] = [
   {
@@ -30,7 +30,7 @@ export const PROGRAM_TYPES: { id: ProgramType; name: string; summary: string; da
     days: [2, 3, 4],
   },
   {
-    id: "hautbas",
+    id: "upperlower",
     name: "Haut / Bas",
     summary: "Un jour le haut, un jour le bas. Bon compromis volume et récupération.",
     days: [2, 4, 6],
@@ -108,7 +108,7 @@ const ROTATIONS: Record<ProgramType, DayTemplate[]> = {
     { title: "Full body C", description: "Tout le corps — variantes différentes", sections: FULL_BODY },
     { title: "Full body D", description: "Tout le corps — dernière variation", sections: FULL_BODY },
   ],
-  hautbas: [
+  upperlower: [
     { title: "Haut du corps A", description: "Poussée et tirage", sections: UPPER },
     { title: "Bas du corps A", description: "Quadriceps, ischios, mollets", sections: LOWER },
     { title: "Haut du corps B", description: "Autres angles, autre matériel", sections: UPPER },
@@ -191,6 +191,34 @@ function setsAndReps(
     : { series: 3, reps: "10–12", restLabel: "75 s repos", restSeconds: 75 };
 }
 
+/**
+ * Sous-titre et conseil déduits de la fiche catalogue. Partagé avec le
+ * sélecteur d'exercices : un mouvement choisi à la main est décrit exactement
+ * comme ceux que le générateur a posés.
+ */
+export function catalogDetails(e: CatalogExercise): Pick<Exercise, "sub" | "tip"> {
+  const compound = e.mechanic === "compound";
+  return {
+    sub: [e.equipment ? EQUIPMENT_LABELS[e.equipment] : null, compound ? "polyarticulaire" : "isolation"]
+      .filter(Boolean)
+      .join(" · "),
+    tip: compound ? "Charge la plus lourde de la séance : soigne l'échauffement" : undefined,
+  };
+}
+
+/**
+ * Exercices retenus pour un programme : matériel de salle classique, et ni
+ * étirements ni haltérophilie. Le sélecteur applique le même tamis que le
+ * générateur, pour ne pas proposer à la main ce qu'il a écarté.
+ */
+export function usableExercises(catalog: CatalogExercise[]): CatalogExercise[] {
+  return catalog.filter(
+    (e) =>
+      (e.equipment === null || GYM_EQUIPMENT.includes(e.equipment)) &&
+      !(e.category && EXCLUDED_CATEGORIES.has(e.category))
+  );
+}
+
 export function generateProgram(
   catalog: CatalogExercise[],
   answers: Answers
@@ -199,11 +227,7 @@ export function generateProgram(
   const rotation = ROTATIONS[type];
   const used = new Set<string>();
 
-  const usable = catalog.filter(
-    (e) =>
-      (e.equipment === null || GYM_EQUIPMENT.includes(e.equipment)) &&
-      !(e.category && EXCLUDED_CATEGORIES.has(e.category))
-  );
+  const usable = usableExercises(catalog);
 
   /**
    * Combien de mouvements polyarticulaires dans une section de `count`
@@ -260,22 +284,16 @@ export function generateProgram(
       if (!exercises.length) continue;
       sections.push({
         title: ms.title,
+        muscles: ms.muscles,
         exercises: exercises.map((e, j): Exercise => {
           const poly = e.mechanic === "compound";
-          const details = [
-            e.equipment ? EQUIPMENT_LABELS[e.equipment] : null,
-            poly ? "isCompound" : "isolation",
-          ]
-            .filter(Boolean)
-            .join(" · ");
           return {
             id: `j${i + 1}-${ms.title.toLowerCase().replace(/\W+/g, "")}-${j + 1}`,
             name: e.name,
-            sub: details,
+            catalogId: e.id,
+            images: e.images,
+            ...catalogDetails(e),
             ...setsAndReps(type, poly),
-            tip: poly
-              ? "Charge la plus lourde de la séance : soigne l'échauffement"
-              : undefined,
           };
         }),
       });
@@ -300,7 +318,7 @@ export function generateProgram(
       tips: [
         "Commence par deux séries légères sur le premier exercice",
         type === "endurance"
-          ? "Enchaîne les exercises d'une section en circuit si le temps presse"
+          ? "Enchaîne les exercices d'une section en circuit si le temps presse"
           : "Ajoute du poids dès que tu tiens le haut de la fourchette de répétitions",
         "Note tes charges à chaque séance : c'est la progression qui compte",
       ],

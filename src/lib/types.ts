@@ -9,11 +9,20 @@ export type Exercise = {
   tip?: string;
   /** Nom du fichier de démonstration dans /public/exos (ex: "squat.gif"). */
   demo?: string;
+  /** Identifiant dans le catalogue, qui permet de proposer des équivalents. */
+  catalogId?: string;
+  /** Photos début/fin du mouvement, chemins relatifs au dépôt d'origine. */
+  images?: string[];
 };
 
 export type Section = {
   title: string;
   exercises: Exercise[];
+  /**
+   * Muscles visés, en clés du catalogue (`chest`, `lats`…). Sert à proposer un
+   * remplaçant qui travaille bien la même chose que l'exercice remplacé.
+   */
+  muscles?: string[];
 };
 
 export type RestInfo = {

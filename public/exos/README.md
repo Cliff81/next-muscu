@@ -1,54 +1,23 @@
-# Démonstrations d'exercices (GIF)
+# Démonstrations d'exercices
 
-Dépose ici les GIF animés des exercices. Chaque fichier est affiché par le bouton **(i)**
-à côté du nom de l'exercice (sur l'accueil et pendant la séance).
+Le bouton **(i)** à côté d'un exercice affiche par défaut les **photos du
+catalogue** : le début et la fin du mouvement, alternées pour suggérer le geste,
+avec une vue côte à côte pour comparer les deux positions.
 
-## Fonctionnement
+Ces photos viennent de [free-exercise-db](https://github.com/yuhonas/free-exercise-db)
+(Unlicense, domaine public) et sont chargées depuis un CDN — voir
+`src/lib/exerciseImages.ts`. Elles ne sont pas dans le dépôt : 873 exercices
+× 2 photos font environ 120 Mo, et le sélecteur ⇄ permet d'aller chercher
+n'importe lequel des 876 exercices.
 
-- Le nom du fichier attendu est défini par le champ `demo` de chaque exercice
-  dans `src/data/defaultProgram.ts`.
-- Tant qu'un fichier est absent, la modale affiche « Démo à venir » — aucune erreur.
-- Formats supportés : `.gif` (recommandé pour l'offline/PWA), mais aussi `.webp` animé
-  ou `.mp4` si tu renommes le champ `demo` en conséquence.
-- Conseil poids : privilégie des GIF légers (< 1–2 Mo) et des dimensions ~480px de large,
-  surtout si tu vises l'installation PWA sur smartphone.
+## Déposer un GIF à la main
 
-## Fichiers attendus (25)
+Ce dossier reste un repli pour les exercices que le catalogue ne couvre pas
+(le cardio HIIT, par exemple). Un fichier n'est affiché que si l'exercice
+**n'a pas** de photos et que son champ `demo` porte le nom du fichier.
 
-### J1 — Pectoraux + Triceps
-- `developpe-couche-barre.gif`
-- `developpe-incline-halteres.gif`
-- `ecarte-poulie-basse.gif`
-- `dips.gif`
-- `triceps-poulie-corde.gif`
-- `skull-crusher.gif`
-
-### J2 — Dos + Biceps
-- `rowing-barre.gif`
-- `tirage-vertical.gif`
-- `tirage-horizontal.gif`
-- `face-pull.gif`
-- `curl-barre-ez.gif`
-- `curl-marteau.gif`
-
-### J3 — Épaules
-- `developpe-militaire.gif`
-- `elevations-laterales.gif`
-- `oiseau.gif`
-- `elevations-frontales.gif`
-- `shrugs.gif`
-
-### J4 — Jambes
-- `squat.gif`
-- `presse-cuisses.gif`
-- `leg-curl.gif`
-- `souleve-terre-jambes-tendues.gif`
-- `mollets-debout.gif`
-
-### J5 — Full Body
-- `souleve-terre.gif`
-- `rowing-trx.gif`
-- `fentes.gif`
-- `gainage.gif`
-
-_(Le Cardio HIIT n'a pas de démo.)_
+- Le champ `demo` se règle dans `src/data/defaultProgram.ts`.
+- Sans fichier ni photos, aucun bouton (i) n'apparaît — pas d'erreur.
+- Formats : `.gif` de préférence (offline/PWA), sinon `.webp` animé ou `.mp4`
+  en adaptant le champ `demo`.
+- Poids conseillé : moins de 1–2 Mo, ~480 px de large.
