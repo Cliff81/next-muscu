@@ -5,6 +5,7 @@ import { onboardingStore } from "@/lib/onboarding";
 import { profileStore, type Profile } from "@/lib/profile";
 import { confirmReset, exportProgram, importProgramFromFile } from "@/lib/programFile";
 import { tokenStore } from "@/lib/googleToken";
+import { SyncStatus } from "@/components/SyncStatus";
 import { useProgram } from "@/lib/useProgram";
 
 /** Pastille de profil : programme, assistant et déconnexion. */
@@ -67,6 +68,8 @@ export function ProfileMenu({ profile }: { profile: Profile }) {
               Revenir au programme par défaut
             </Item>
 
+            <Separator />
+            <SyncStatus profile={profile} />
             <Separator />
             <Item
               onClick={() => {

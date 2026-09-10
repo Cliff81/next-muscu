@@ -5,6 +5,7 @@ import { Assistant } from "@/components/Assistant";
 import { LogoTile } from "@/components/Logo";
 import { APP_NAME_PARTS, APP_TAGLINE } from "@/lib/app";
 import { onboardingStore } from "@/lib/onboarding";
+import { tokenStore } from "@/lib/googleToken";
 import { mountGoogleButton } from "@/lib/googleButton";
 import { googleConfigured, profileFromToken, profileStore, emptyProfile } from "@/lib/profile";
 
@@ -36,6 +37,10 @@ function SignInScreen() {
       return;
     }
     setTokenError(null);
+    // Le jeton lui-même, et pas seulement le profil qu'on en tire : c'est lui
+    // que Convex vérifie. Sans cette ligne l'application paraît connectée —
+    // nom et photo viennent du jeton décodé — mais aucune donnée ne remonte.
+    tokenStore.set(jwt);
     profileStore.set(issu);
   };
 
