@@ -11,7 +11,7 @@
  * Écrit à la main et servi tel quel : pas d'étape de compilation à ajouter.
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL = `stronger-shell-${VERSION}`;
 const ASSETS = `stronger-assets-${VERSION}`;
 const DATA = `stronger-data-${VERSION}`;
@@ -131,6 +131,26 @@ async function trimPhotos(cache) {
   if (cles.length <= PHOTOS_MAX) return;
   await Promise.all(cles.slice(0, cles.length - PHOTOS_MAX).map((cle) => cache.delete(cle)));
 }
+
+/*
+ * Toucher la notification de fin de repos ramène à la séance : on réutilise
+ * l'onglet déjà ouvert plutôt que d'en empiler un nouveau, sinon la séance en
+ * cours se retrouverait dans un onglet resté en arrière.
+ */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    (async () => {
+      const fenetres = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const ouverte = fenetres.find((c) => c.url.startsWith(self.location.origin));
+      if (ouverte) {
+        await ouverte.focus();
+        return;
+      }
+      await self.clients.openWindow("/");
+    })()
+  );
+});
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;

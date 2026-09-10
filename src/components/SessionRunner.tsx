@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ExerciseDemo } from "@/components/ExerciseDemo";
 import { LoadGauge } from "@/components/LoadGauge";
+import { askNotifications } from "@/lib/notify";
+import { keepScreenAwake, releaseWakeLock } from "@/lib/wakeLock";
 import { LOAD_LABELS, loadLevel } from "@/lib/loadLevel";
 import { RestTimer } from "@/components/RestTimer";
 import { formatDuration, sessionProgress } from "@/lib/session";
@@ -80,6 +82,16 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
   const currentStep = focusPos >= 0 ? flatSteps[focusPos] : null;
   const currentSet = currentStep ? getSet(session, currentStep.exerciseId, currentStep.setIndex) : undefined;
   const currentLoad = currentStep ? loadLevel(currentStep.reps) : null;
+
+  /*
+   * Écran maintenu allumé pendant la séance : c'est ce qui rend l'alarme de
+   * repos fiable, un écran éteint faisant brider les minuteurs. Relâché en
+   * quittant la page, pour ne pas vider la batterie une fois la séance finie.
+   */
+  useEffect(() => {
+    keepScreenAwake();
+    return releaseWakeLock;
+  }, []);
   const isFirstStepOfSession = focusPos === 0;
 
   function handleFinish() {
@@ -200,7 +212,12 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
           {!started ? (
             <div className="mt-5">
               <button
-                onClick={() => setStarted(true)}
+                onClick={() => {
+                  // Sur le geste, jamais au chargement : une demande surgie
+                  // sans raison se fait refuser, et un refus est définitif.
+                  void askNotifications();
+                  setStarted(true);
+                }}
                 disabled={Boolean(rest)}
                 className="w-full rounded-md bg-accent px-4 py-4 text-base font-bold text-bg transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-surface2 disabled:text-muted"
               >
