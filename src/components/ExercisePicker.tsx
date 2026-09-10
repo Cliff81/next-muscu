@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/Modal";
 import {
   EQUIPMENT_LABELS,
@@ -30,6 +30,53 @@ function searchableText(e: CatalogExercise): string {
     .toLowerCase();
 }
 
+/**
+ * Contenu de la modale : télécharge le catalogue à la première ouverture, puis
+ * présente les candidats. Partagé par le remplacement et par l'ajout.
+ */
+export function ExerciseChooser({
+  current,
+  muscles,
+  onChoose,
+}: {
+  current: Exercise | null;
+  muscles?: string[];
+  onChoose: (chosen: CatalogExercise) => void;
+}) {
+  const [catalog, setCatalog] = useState<CatalogExercise[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let vivant = true;
+    loadCatalog()
+      .then((liste) => {
+        if (vivant) setCatalog(liste);
+      })
+      .catch(() => {
+        if (vivant) setFailed(true);
+      });
+    return () => {
+      vivant = false;
+    };
+  }, []);
+
+  if (failed) {
+    return (
+      <p className="py-8 text-center text-sm text-muted">
+        Le catalogue n&apos;a pas pu être chargé.
+        <br />
+        Vérifie ta connexion et réessaie.
+      </p>
+    );
+  }
+  if (!catalog) {
+    return <p className="py-8 text-center text-sm text-muted">Chargement du catalogue…</p>;
+  }
+  return (
+    <Candidates catalog={catalog} current={current} muscles={muscles} onChoose={onChoose} />
+  );
+}
+
 type Props = {
   /** L'exercice occupant le créneau aujourd'hui. */
   current: Exercise;
@@ -45,7 +92,8 @@ function Candidates({
   onChoose,
 }: {
   catalog: CatalogExercise[];
-  current: Exercise;
+  /** L'exercice occupant le créneau, s'il y en a un. Absent à l'ajout. */
+  current: Exercise | null;
   muscles?: string[];
   onChoose: (replacement: CatalogExercise) => void;
 }) {
@@ -57,13 +105,14 @@ function Candidates({
    * lui, le sélecteur ne saurait pas sur quel groupe musculaire filtrer et
    * proposerait le catalogue entier.
    */
-  const inPlaceEntry = useMemo(
-    () =>
+  const inPlaceEntry = useMemo(() => {
+    if (!current) return null;
+    return (
       catalog.find((e) => e.id === current.catalogId) ??
       catalog.find((e) => e.name === current.name) ??
-      null,
-    [catalog, current.catalogId, current.name]
-  );
+      null
+    );
+  }, [catalog, current]);
 
   const targets = useMemo(() => {
     if (muscles?.length) return muscles;
@@ -122,7 +171,7 @@ function Candidates({
         ) : (
           <ul className="flex flex-col gap-1.5">
             {results.map((exercise) => {
-              const inPlace = exercise.id === current.catalogId;
+              const inPlace = current !== null && exercise.id === current.catalogId;
               return (
                 <li key={exercise.id}>
                   <button
@@ -173,24 +222,11 @@ function Candidates({
 }
 
 /**
- * Bouton ⇄ ouvrant la liste des mouvements qui travaillent la même chose, pour
- * remplacer un exercice du programme. Le catalogue n'est téléchargé qu'à
- * l'ouverture.
+ * Bouton ⇄ pour remplacer un exercice du programme. Le catalogue n'est
+ * téléchargé qu'à l'ouverture, par `ExerciseChooser`.
  */
 export function ExercisePicker({ current, muscles, onChoose }: Props) {
   const [open, setOpen] = useState(false);
-  const [catalog, setCatalog] = useState<CatalogExercise[] | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  const openPicker = () => {
-    setOpen(true);
-    if (!catalog) {
-      setFailed(false);
-      loadCatalog()
-        .then(setCatalog)
-        .catch(() => setFailed(true));
-    }
-  };
 
   return (
     <>
@@ -199,7 +235,7 @@ export function ExercisePicker({ current, muscles, onChoose }: Props) {
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          openPicker();
+          setOpen(true);
         }}
         aria-label={`Remplacer l'exercice : ${current.name}`}
         title="Remplacer cet exercice"
@@ -210,25 +246,56 @@ export function ExercisePicker({ current, muscles, onChoose }: Props) {
 
       {open && (
         <Modal title={`Remplacer « ${current.name} »`} onClose={() => setOpen(false)} wide>
-          {failed ? (
-            <p className="py-8 text-center text-sm text-muted">
-              Le catalogue n&apos;a pas pu être chargé.
-              <br />
-              Vérifie ta connexion et réessaie.
-            </p>
-          ) : catalog ? (
-            <Candidates
-              catalog={catalog}
-              current={current}
-              muscles={muscles}
-              onChoose={(replacement) => {
-                onChoose(replacement);
-                setOpen(false);
-              }}
-            />
-          ) : (
-            <p className="py-8 text-center text-sm text-muted">Chargement du catalogue…</p>
-          )}
+          <ExerciseChooser
+            current={current}
+            muscles={muscles}
+            onChoose={(replacement) => {
+              onChoose(replacement);
+              setOpen(false);
+            }}
+          />
+        </Modal>
+      )}
+    </>
+  );
+}
+
+/**
+ * Bouton d'ajout d'un exercice à une catégorie. Même liste que le
+ * remplacement, sans exercice de départ : la portée vient des muscles de la
+ * catégorie.
+ */
+export function AddExerciseButton({
+  sectionTitle,
+  muscles,
+  onChoose,
+}: {
+  sectionTitle: string;
+  muscles?: string[];
+  onChoose: (chosen: CatalogExercise) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-md border border-accent/50 px-3 py-1.5 text-xs text-accent transition hover:bg-accent-soft"
+      >
+        + Ajouter un exercice
+      </button>
+
+      {open && (
+        <Modal title={`Ajouter à « ${sectionTitle} »`} onClose={() => setOpen(false)} wide>
+          <ExerciseChooser
+            current={null}
+            muscles={muscles}
+            onChoose={(chosen) => {
+              onChoose(chosen);
+              setOpen(false);
+            }}
+          />
         </Modal>
       )}
     </>

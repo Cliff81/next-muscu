@@ -16,7 +16,7 @@ const exerciseSchema = z.object({
 
 const sectionSchema = z.object({
   title: z.string().min(1),
-  exercises: z.array(exerciseSchema).min(1),
+  exercises: z.array(exerciseSchema),
   muscles: z.array(z.string()).optional(),
 });
 
@@ -32,7 +32,7 @@ const daySchema = z.object({
   title: z.string().min(1),
   description: z.string(),
   muscleTags: z.array(z.string()),
-  sections: z.array(sectionSchema).min(1),
+  sections: z.array(sectionSchema),
   restInfo: restInfoSchema,
   tips: z.array(z.string()),
 });

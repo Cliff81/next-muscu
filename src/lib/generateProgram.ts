@@ -179,7 +179,7 @@ export type Answers = {
   level: Level;
 };
 
-function setsAndReps(
+export function setsAndReps(
   type: ProgramType,
   isCompound: boolean
 ): Pick<Exercise, "series" | "reps" | "restLabel" | "restSeconds"> {
