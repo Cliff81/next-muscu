@@ -11,7 +11,10 @@ export const get = query({
       .query("programs")
       .withIndex("by_subject", (q) => q.eq("subject", subject))
       .unique();
-    return row ? row.program : null;
+    // L'horodatage remonte au client : c'est lui qui permet de décider si la
+    // version distante est plus récente que la locale, au lieu d'écraser à
+    // l'aveugle.
+    return row ? { program: row.program, updatedAt: row.updatedAt } : null;
   },
 });
 

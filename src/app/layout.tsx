@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Bebas_Neue, DM_Sans } from "next/font/google";
+import { ConvexClient } from "@/components/ConvexClient";
 import { SignInGate } from "@/components/SignInGate";
+import { SyncBridge } from "@/components/SyncBridge";
 import { TopBar } from "@/components/TopBar";
 import { APP_NAME, APP_TAGLINE } from "@/lib/app";
 import "./globals.css";
@@ -33,10 +35,13 @@ export default function RootLayout({
       className={`${bebasNeue.variable} ${dmSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-bg text-text">
-        <SignInGate>
-          <TopBar />
-          {children}
-        </SignInGate>
+        <ConvexClient>
+          <SyncBridge />
+          <SignInGate>
+            <TopBar />
+            {children}
+          </SignInGate>
+        </ConvexClient>
       </body>
     </html>
   );
