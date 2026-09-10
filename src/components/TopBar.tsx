@@ -6,15 +6,15 @@ import { ProfileMenu } from "@/components/ProfileMenu";
 import { APP_NAME_PARTS } from "@/lib/app";
 import { profileStore } from "@/lib/profile";
 
-const LIENS = [
+const LINKS = [
   { href: "/", label: "Programme" },
   { href: "/progress", label: "Progression" },
 ] as const;
 
 /** Bandeau : marque à gauche, navigation en pilules au centre, profil à droite. */
 export function TopBar() {
-  const profil = profileStore.useValue();
-  const chemin = usePathname();
+  const profile = profileStore.useValue();
+  const path = usePathname();
 
   return (
     <header className="border-b border-border bg-surface">
@@ -30,15 +30,15 @@ export function TopBar() {
         </Link>
 
         <nav className="order-last flex w-full items-center justify-center gap-1 border-t border-border/70 pt-2 sm:order-none sm:mx-auto sm:w-auto sm:border-0 sm:pt-0">
-          {LIENS.map((l) => {
-            const actif = chemin === l.href;
+          {LINKS.map((l) => {
+            const active = path === l.href;
             return (
               <Link
                 key={l.href}
                 href={l.href}
-                aria-current={actif ? "page" : undefined}
+                aria-current={active ? "page" : undefined}
                 className={`rounded-full px-3.5 py-1.5 text-sm transition ${
-                  actif
+                  active
                     ? "bg-accent-soft font-medium text-accent"
                     : "text-muted hover:bg-surface2 hover:text-text"
                 }`}
@@ -50,7 +50,7 @@ export function TopBar() {
         </nav>
 
         <div className="ml-auto sm:ml-0">
-          {profil ? <ProfileMenu profil={profil} /> : null}
+          {profile ? <ProfileMenu profile={profile} /> : null}
         </div>
       </div>
     </header>

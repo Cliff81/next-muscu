@@ -18,31 +18,31 @@ export type Muscle =
   | "forearms" | "glutes" | "hamstrings" | "lats" | "lower back" | "middle back"
   | "neck" | "quadriceps" | "shoulders" | "traps" | "triceps";
 
-export type Equipement =
+export type Equipment =
   | "bands" | "barbell" | "body only" | "cable" | "dumbbell" | "e-z curl bar"
   | "exercise ball" | "foam roll" | "kettlebells" | "machine" | "medicine ball"
   | "other";
 
-export type Niveau = "beginner" | "intermediate" | "expert";
+export type Level = "beginner" | "intermediate" | "expert";
 
-export type Categorie =
+export type Category =
   | "cardio" | "olympic weightlifting" | "plyometrics" | "powerlifting"
   | "strength" | "stretching" | "strongman";
 
-export type ExerciceCatalogue = {
+export type CatalogExercise = {
   id: string;
   name: string;
   muscles: Muscle[];
   secondary: Muscle[];
-  equipment: Equipement | null;
-  level: Niveau | null;
+  equipment: Equipment | null;
+  level: Level | null;
   force: "push" | "pull" | "static" | null;
   mechanic: "compound" | "isolation" | null;
-  category: Categorie | null;
+  category: Category | null;
   images: string[];
 };
 
-export const MUSCLES_FR: Record<Muscle, string> = {
+export const MUSCLE_LABELS: Record<Muscle, string> = {
   abdominals: "Abdominaux",
   abductors: "Abducteurs",
   adductors: "Adducteurs",
@@ -62,7 +62,7 @@ export const MUSCLES_FR: Record<Muscle, string> = {
   triceps: "Triceps",
 };
 
-export const EQUIPEMENT_FR: Record<Equipement, string> = {
+export const EQUIPMENT_LABELS: Record<Equipment, string> = {
   bands: "Élastique",
   barbell: "Barre",
   "body only": "Poids du corps",
@@ -77,41 +77,41 @@ export const EQUIPEMENT_FR: Record<Equipement, string> = {
   other: "Autre",
 };
 
-export const NIVEAU_FR: Record<Niveau, string> = {
+export const LEVEL_LABELS: Record<Level, string> = {
   beginner: "Débutant",
   intermediate: "Intermédiaire",
   expert: "Avancé",
 };
 
-let enCours: Promise<ExerciceCatalogue[]> | null = null;
+let pending: Promise<CatalogExercise[]> | null = null;
 
 /** Télécharge le catalogue une seule fois par session. */
-export function chargerCatalogue(): Promise<ExerciceCatalogue[]> {
-  if (!enCours) {
-    enCours = fetch("/exercices.json")
+export function loadCatalog(): Promise<CatalogExercise[]> {
+  if (!pending) {
+    pending = fetch("/exercises.json")
       .then((r) => {
         if (!r.ok) throw new Error("catalogue");
-        return r.json() as Promise<ExerciceCatalogue[]>;
+        return r.json() as Promise<CatalogExercise[]>;
       })
       .catch((err) => {
         // Un échec ne doit pas figer le cache : la prochaine tentative réessaie.
-        enCours = null;
+        pending = null;
         throw err;
       });
   }
-  return enCours;
+  return pending;
 }
 
 /** Exercices ciblant un muscle en premier, matériel disponible respecté. */
-export function pourMuscle(
-  catalogue: ExerciceCatalogue[],
+export function forMuscle(
+  catalogue: CatalogExercise[],
   muscle: Muscle,
-  materiel: Equipement[]
-): ExerciceCatalogue[] {
+  equipmentAvailable: Equipment[]
+): CatalogExercise[] {
   return catalogue.filter(
     (e) =>
       e.muscles.includes(muscle) &&
-      (e.equipment === null || materiel.includes(e.equipment))
+      (e.equipment === null || equipmentAvailable.includes(e.equipment))
   );
 }
 
@@ -120,23 +120,23 @@ export function pourMuscle(
  * polyarticulaires d'abord — ils chargent le plus de masse musculaire — puis
  * l'isolation, et à niveau égal on privilégie les exercices accessibles.
  */
-export function trierPourSeance(
-  liste: ExerciceCatalogue[],
-  niveau: Niveau
-): ExerciceCatalogue[] {
-  const rangNiveau: Record<Niveau, number> = {
+export function sortForSession(
+  list: CatalogExercise[],
+  level: Level
+): CatalogExercise[] {
+  const levelRank: Record<Level, number> = {
     beginner: 0,
     intermediate: 1,
     expert: 2,
   };
-  const plafond = rangNiveau[niveau];
-  return [...liste]
-    .filter((e) => (e.level ? rangNiveau[e.level] <= plafond : true))
+  const ceiling = levelRank[level];
+  return [...list]
+    .filter((e) => (e.level ? levelRank[e.level] <= ceiling : true))
     .sort((a, b) => {
-      const poly = Number(b.mechanic === "compound") - Number(a.mechanic === "compound");
-      if (poly !== 0) return poly;
-      const av = a.level ? rangNiveau[a.level] : 0;
-      const bv = b.level ? rangNiveau[b.level] : 0;
+      const compound = Number(b.mechanic === "compound") - Number(a.mechanic === "compound");
+      if (compound !== 0) return compound;
+      const av = a.level ? levelRank[a.level] : 0;
+      const bv = b.level ? levelRank[b.level] : 0;
       if (av !== bv) return av - bv;
       return a.name.localeCompare(b.name);
     });

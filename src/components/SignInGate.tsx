@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { Assistant } from "@/components/Assistant";
 import { APP_NAME_PARTS, APP_TAGLINE } from "@/lib/app";
-import { assistantStore } from "@/lib/assistant";
-import { monterBoutonGoogle } from "@/lib/googleButton";
-import { googleConfigure, profilDepuisJeton, profileStore, profilVide } from "@/lib/profile";
+import { onboardingStore } from "@/lib/onboarding";
+import { mountGoogleButton } from "@/lib/googleButton";
+import { googleConfigured, profileFromToken, profileStore, emptyProfile } from "@/lib/profile";
 
 /**
  * Porte d'entrée : connexion, puis assistant, puis l'application.
@@ -14,27 +14,27 @@ import { googleConfigure, profilDepuisJeton, profileStore, profilVide } from "@/
  * connexion se greffe quand elle est configurée, elle ne bloque pas l'usage.
  */
 export function SignInGate({ children }: { children: React.ReactNode }) {
-  const profil = profileStore.useValue();
-  const assistantFait = assistantStore.useValue();
+  const profile = profileStore.useValue();
+  const onboardingDone = onboardingStore.useValue();
 
-  if (!profil) return <EcranConnexion />;
-  if (!assistantFait) return <Assistant profil={profil} />;
+  if (!profile) return <SignInScreen />;
+  if (!onboardingDone) return <Assistant profile={profile} />;
   return <>{children}</>;
 }
 
-const PROFIL_LOCAL = { sub: "local", email: "", name: "Moi", picture: "" };
+const LOCAL_IDENTITY = { subject: "local", email: "", name: "Moi", picture: "" };
 
-function EcranConnexion() {
-  const [erreurJeton, setErreurJeton] = useState<string | null>(null);
-  const [erreur, setErreur] = useState<string | null>(null);
+function SignInScreen() {
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const recevoirJeton = (jwt: string) => {
-    const issu = profilDepuisJeton(jwt);
-    if ("erreur" in issu) {
-      setErreurJeton(issu.erreur);
+  const receiveToken = (jwt: string) => {
+    const issu = profileFromToken(jwt);
+    if ("error" in issu) {
+      setTokenError(issu.error);
       return;
     }
-    setErreurJeton(null);
+    setTokenError(null);
     profileStore.set(issu);
   };
 
@@ -47,22 +47,22 @@ function EcranConnexion() {
         </h1>
         <p className="mt-2 text-[0.85rem] text-muted">{APP_TAGLINE}</p>
 
-        {googleConfigure() ? (
+        {googleConfigured() ? (
           <>
             <p className="mt-5 text-sm text-muted">
-              Connecte-toi pour retrouver ton profil et ton programme.
+              Connecte-toi pour retrouver ton profile et ton programme.
             </p>
             <div
               ref={(el) => {
-                if (el) void monterBoutonGoogle(el, recevoirJeton).then(setErreur);
+                if (el) void mountGoogleButton(el, receiveToken).then(setError);
               }}
               className="mt-5 flex justify-center"
             />
-            {erreur ? <p className="mt-3 text-sm text-accent2">{erreur}</p> : null}
-            {erreurJeton ? <p className="mt-3 text-sm text-accent2">{erreurJeton}</p> : null}
+            {error ? <p className="mt-3 text-sm text-accent2">{error}</p> : null}
+            {tokenError ? <p className="mt-3 text-sm text-accent2">{tokenError}</p> : null}
             <button
               type="button"
-              onClick={() => profileStore.set(profilVide(PROFIL_LOCAL))}
+              onClick={() => profileStore.set(emptyProfile(LOCAL_IDENTITY))}
               className="mt-5 w-full text-xs text-muted underline transition hover:text-text"
             >
               Continuer sans compte Google
@@ -75,13 +75,13 @@ function EcranConnexion() {
             </p>
             <button
               type="button"
-              onClick={() => profileStore.set(profilVide(PROFIL_LOCAL))}
+              onClick={() => profileStore.set(emptyProfile(LOCAL_IDENTITY))}
               className="font-display mt-5 w-full rounded-full bg-accent px-4 py-2.5 text-lg text-accent-fg transition hover:opacity-90"
             >
               Commencer
             </button>
             <p className="mt-4 text-xs text-muted">
-              La connexion Google n&apos;est pas configurée sur cette installation.
+              La connexion Google n&apos;est pas configurée eyebrow cette installation.
             </p>
           </>
         )}

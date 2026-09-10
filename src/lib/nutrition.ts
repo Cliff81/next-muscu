@@ -10,78 +10,78 @@
  */
 import type { Profile } from "@/lib/profile";
 
-export type Objectif = "masse" | "maintien" | "seche";
+export type Goal = "masse" | "maintien" | "seche";
 
-export const OBJECTIFS: { id: Objectif; nom: string; resume: string }[] = [
-  { id: "masse", nom: "Prise de masse", resume: "Léger surplus, pour construire du muscle" },
-  { id: "maintien", nom: "Maintien", resume: "Stabiliser le poids actuel" },
-  { id: "seche", nom: "Sèche", resume: "Déficit modéré, pour perdre du gras" },
+export const GOALS: { id: Goal; name: string; summary: string }[] = [
+  { id: "masse", name: "Prise de masse", summary: "Léger surplus, pour construire du muscle" },
+  { id: "maintien", name: "Maintien", summary: "Stabiliser le poids actuel" },
+  { id: "seche", name: "Sèche", summary: "Déficit modéré, pour perdre du gras" },
 ];
 
-export type BesoinsCalcules = {
-  metabolismeBase: number;
-  depenseTotale: number;
+export type ComputedNeeds = {
+  bmr: number;
+  tdee: number;
   calories: number;
-  proteines: number;
-  lipides: number;
-  glucides: number;
-  approximeSexe: boolean;
+  protein: number;
+  fat: number;
+  carbs: number;
+  sexApproximated: boolean;
 };
 
-export type Besoins = BesoinsCalcules | { manquant: string[] };
+export type Needs = ComputedNeeds | { missing: string[] };
 
 /** Facteur d'activité déduit du nombre de séances hebdomadaires. */
-function facteurActivite(seances: number): number {
-  if (seances <= 1) return 1.2;
-  if (seances <= 3) return 1.375;
-  if (seances <= 5) return 1.55;
+function activityFactor(sessions: number): number {
+  if (sessions <= 1) return 1.2;
+  if (sessions <= 3) return 1.375;
+  if (sessions <= 5) return 1.55;
   return 1.725;
 }
 
-const AJUSTEMENT: Record<Objectif, number> = {
+const ADJUSTMENT: Record<Goal, number> = {
   masse: 1.15,
   maintien: 1,
   seche: 0.8,
 };
 
-export function calculerBesoins(
-  profil: Profile,
-  objectif: Objectif,
-  seancesParSemaine: number
-): Besoins {
+export function computeNeeds(
+  profile: Profile,
+  goal: Goal,
+  sessionsPerWeek: number
+): Needs {
   // Les champs facultatifs le restent : sans eux on le dit, on n'invente pas.
-  const manquant: string[] = [];
-  if (profil.poidsKg === null) manquant.push("ton poids");
-  if (profil.tailleCm === null) manquant.push("ta taille");
-  if (profil.age === null) manquant.push("ton âge");
-  if (manquant.length) return { manquant };
+  const missing: string[] = [];
+  if (profile.weightKg === null) missing.push("ton poids");
+  if (profile.heightCm === null) missing.push("ta taille");
+  if (profile.age === null) missing.push("ton âge");
+  if (missing.length) return { missing };
 
-  const kg = profil.poidsKg!;
-  const cm = profil.tailleCm!;
-  const age = profil.age!;
+  const kg = profile.weightKg!;
+  const cm = profile.heightCm!;
+  const age = profile.age!;
 
   const base = 10 * kg + 6.25 * cm - 5 * age;
-  // Sans sexe renseigné, on prend le milieu des deux constantes plutôt que
+  // Sans sex renseigné, on prend le milieu des deux constantes plutôt que
   // d'en supposer un.
-  const constante =
-    profil.sexe === "homme" ? 5 : profil.sexe === "femme" ? -161 : (5 - 161) / 2;
-  const metabolismeBase = Math.round(base + constante);
-  const depenseTotale = Math.round(metabolismeBase * facteurActivite(seancesParSemaine));
-  const calories = Math.round(depenseTotale * AJUSTEMENT[objectif]);
+  const constant =
+    profile.sex === "homme" ? 5 : profile.sex === "femme" ? -161 : (5 - 161) / 2;
+  const bmr = Math.round(base + constant);
+  const tdee = Math.round(bmr * activityFactor(sessionsPerWeek));
+  const calories = Math.round(tdee * ADJUSTMENT[goal]);
 
   // 1,8 g de protéines par kilo : fourchette haute usuelle en renforcement.
-  const proteines = Math.round(kg * 1.8);
+  const protein = Math.round(kg * 1.8);
   // 25 % des calories en lipides, le reste en glucides.
-  const lipides = Math.round((calories * 0.25) / 9);
-  const glucides = Math.round((calories - proteines * 4 - lipides * 9) / 4);
+  const fat = Math.round((calories * 0.25) / 9);
+  const carbs = Math.round((calories - protein * 4 - fat * 9) / 4);
 
   return {
-    metabolismeBase,
-    depenseTotale,
+    bmr,
+    tdee,
     calories,
-    proteines,
-    lipides,
-    glucides,
-    approximeSexe: profil.sexe === null || profil.sexe === "autre",
+    protein,
+    fat,
+    carbs,
+    sexApproximated: profile.sex === null || profile.sex === "autre",
   };
 }

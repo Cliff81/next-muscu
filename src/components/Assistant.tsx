@@ -1,94 +1,94 @@
 "use client";
 
 import { useState } from "react";
-import { assistantStore, FREQUENCES, type Etape } from "@/lib/assistant";
-import { chargerCatalogue, type Niveau } from "@/lib/catalogue";
-import { genererProgramme, TYPES, type TypeProgramme } from "@/lib/generateProgram";
-import { calculerBesoins, OBJECTIFS, type Besoins, type Objectif } from "@/lib/nutrition";
-import { profileStore, type Experience, type Profile, type Sexe } from "@/lib/profile";
+import { onboardingStore, FREQUENCIES, type Step } from "@/lib/onboarding";
+import { loadCatalog, type Level } from "@/lib/catalog";
+import { generateProgram, PROGRAM_TYPES, type ProgramType } from "@/lib/generateProgram";
+import { computeNeeds, GOALS, type Needs, type Goal } from "@/lib/nutrition";
+import { profileStore, type Experience, type Profile, type Sex } from "@/lib/profile";
 import { programStore } from "@/lib/stores";
 
-const NIVEAU_DEPUIS_EXPERIENCE: Record<Experience, Niveau> = {
+const LEVEL_FROM_EXPERIENCE: Record<Experience, Level> = {
   debutant: "beginner",
   intermediaire: "intermediate",
   avance: "expert",
 };
 
-export function Assistant({ profil }: { profil: Profile }) {
-  const [etape, setEtape] = useState<Etape>("toi");
-  const [frequence, setFrequence] = useState(4);
-  const [erreur, setErreur] = useState<string | null>(null);
-  const [enCours, setEnCours] = useState(false);
-  const [besoins, setBesoins] = useState<Besoins | null>(null);
+export function Assistant({ profile }: { profile: Profile }) {
+  const [step, setStep] = useState<Step>("you");
+  const [frequency, setFrequency] = useState(4);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [needs, setNeeds] = useState<Needs | null>(null);
 
-  const terminer = () => assistantStore.set(true);
+  const finish = () => onboardingStore.set(true);
 
-  const construire = async (type: TypeProgramme) => {
-    setEnCours(true);
-    setErreur(null);
+  const build = async (type: ProgramType) => {
+    setBusy(true);
+    setError(null);
     try {
-      const catalogue = await chargerCatalogue();
-      const niveau = profil.experience
-        ? NIVEAU_DEPUIS_EXPERIENCE[profil.experience]
+      const catalog = await loadCatalog();
+      const level = profile.experience
+        ? LEVEL_FROM_EXPERIENCE[profile.experience]
         : "intermediate";
-      programStore.set(genererProgramme(catalogue, { frequence, type, niveau }));
-      terminer();
+      programStore.set(generateProgram(catalog, { frequency, type, level }));
+      finish();
     } catch {
-      setErreur("Le catalogue d'exercices n'a pas pu être chargé.");
+      setError("Le catalog d'exercices n'a pas pu être chargé.");
     } finally {
-      setEnCours(false);
+      setBusy(false);
     }
   };
 
   return (
-    <Cadre etape={etape}>
-      {etape === "toi" ? (
-        <EtapeToi
-          profil={profil}
-          onSuivant={() => setEtape("objectif")}
-          onPasser={() => setEtape("objectif")}
+    <Frame step={step}>
+      {step === "you" ? (
+        <StepYou
+          profile={profile}
+          onNext={() => setStep("goal")}
+          onSkip={() => setStep("goal")}
         />
-      ) : etape === "objectif" ? (
-        <EtapeObjectif
-          onSport={() => setEtape("frequence")}
-          onNutrition={() => setEtape("nutrition")}
+      ) : step === "goal" ? (
+        <StepGoal
+          onSport={() => setStep("frequency")}
+          onNutrition={() => setStep("nutrition")}
         />
-      ) : etape === "frequence" ? (
-        <EtapeFrequence
-          valeur={frequence}
-          onChange={setFrequence}
-          onSuivant={() => setEtape("type")}
+      ) : step === "frequency" ? (
+        <StepFrequency
+          value={frequency}
+          onChange={setFrequency}
+          onNext={() => setStep("type")}
         />
-      ) : etape === "type" ? (
-        <EtapeType
-          frequence={frequence}
-          enCours={enCours}
-          erreur={erreur}
-          onChoisir={construire}
-          onRetour={() => setEtape("frequence")}
+      ) : step === "type" ? (
+        <StepType
+          frequency={frequency}
+          busy={busy}
+          error={error}
+          onChoose={build}
+          onBack={() => setStep("frequency")}
         />
       ) : (
-        <EtapeNutrition
-          besoins={besoins}
-          onCalculer={(objectif, seances) =>
-            setBesoins(calculerBesoins(profil, objectif, seances))
+        <StepNutrition
+          needs={needs}
+          onCompute={(goal, sessions) =>
+            setNeeds(computeNeeds(profile, goal, sessions))
           }
-          onTermine={terminer}
-          onRetour={() => setEtape("objectif")}
+          onDone={finish}
+          onBack={() => setStep("goal")}
         />
       )}
-    </Cadre>
+    </Frame>
   );
 }
 
-const ORDRE: Etape[] = ["toi", "objectif", "frequence", "type"];
+const ORDER: Step[] = ["you", "goal", "frequency", "type"];
 
-function Cadre({ etape, children }: { etape: Etape; children: React.ReactNode }) {
-  const index = ORDRE.indexOf(etape);
+function Frame({ step, children }: { step: Step; children: React.ReactNode }) {
+  const index = ORDER.indexOf(step);
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center px-6 py-10">
       <div className="mb-4 flex gap-1.5">
-        {ORDRE.map((e, i) => (
+        {ORDER.map((e, i) => (
           <span
             key={e}
             className={`h-1 flex-1 rounded-full transition ${
@@ -102,18 +102,18 @@ function Cadre({ etape, children }: { etape: Etape; children: React.ReactNode })
   );
 }
 
-function Titre({ sur, children }: { sur: string; children: React.ReactNode }) {
+function Heading({ eyebrow, children }: { eyebrow: string; children: React.ReactNode }) {
   return (
     <>
       <div className="text-[0.7rem] font-medium tracking-[0.25em] text-accent uppercase">
-        {sur}
+        {eyebrow}
       </div>
       <h2 className="font-display mt-2 text-3xl leading-none">{children}</h2>
     </>
   );
 }
 
-function Principal({
+function PrimaryButton({
   children,
   onClick,
   disabled,
@@ -134,7 +134,7 @@ function Principal({
   );
 }
 
-function Secondaire({
+function LinkButton({
   children,
   onClick,
 }: {
@@ -152,15 +152,15 @@ function Secondaire({
   );
 }
 
-function Carte({
-  titre,
-  resume,
-  actif,
+function OptionCard({
+  title,
+  summary,
+  active,
   onClick,
 }: {
-  titre: string;
-  resume: string;
-  actif?: boolean;
+  title: string;
+  summary: string;
+  active?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -168,104 +168,104 @@ function Carte({
       type="button"
       onClick={onClick}
       className={`w-full rounded-xl border px-4 py-3 text-left transition ${
-        actif
+        active
           ? "border-accent bg-accent-soft"
           : "border-border bg-surface2 hover:border-border2"
       }`}
     >
-      <div className={`font-medium ${actif ? "text-accent" : "text-text"}`}>{titre}</div>
-      <div className="mt-0.5 text-xs text-muted">{resume}</div>
+      <div className={`font-medium ${active ? "text-accent" : "text-text"}`}>{title}</div>
+      <div className="mt-0.5 text-xs text-muted">{summary}</div>
     </button>
   );
 }
 
 /* ---------------------------------------------------------------- étape 1 */
 
-const SEXES: { id: Sexe; nom: string }[] = [
-  { id: "homme", nom: "Homme" },
-  { id: "femme", nom: "Femme" },
-  { id: "autre", nom: "Autre" },
+const SEXES: { id: Sex; name: string }[] = [
+  { id: "homme", name: "Homme" },
+  { id: "femme", name: "Femme" },
+  { id: "autre", name: "Autre" },
 ];
 
-const EXPERIENCES: { id: Experience; nom: string }[] = [
-  { id: "debutant", nom: "Débutant" },
-  { id: "intermediaire", nom: "Intermédiaire" },
-  { id: "avance", nom: "Avancé" },
+const EXPERIENCES: { id: Experience; name: string }[] = [
+  { id: "debutant", name: "Débutant" },
+  { id: "intermediaire", name: "Intermédiaire" },
+  { id: "avance", name: "Avancé" },
 ];
 
-function EtapeToi({
-  profil,
-  onSuivant,
-  onPasser,
+function StepYou({
+  profile,
+  onNext,
+  onSkip,
 }: {
-  profil: Profile;
-  onSuivant: () => void;
-  onPasser: () => void;
+  profile: Profile;
+  onNext: () => void;
+  onSkip: () => void;
 }) {
-  const [taille, setTaille] = useState(profil.tailleCm?.toString() ?? "");
-  const [poids, setPoids] = useState(profil.poidsKg?.toString() ?? "");
-  const [age, setAge] = useState(profil.age?.toString() ?? "");
-  const [sexe, setSexe] = useState<Sexe | null>(profil.sexe);
-  const [experience, setExperience] = useState<Experience | null>(profil.experience);
+  const [height, setHeight] = useState(profile.heightCm?.toString() ?? "");
+  const [weight, setWeight] = useState(profile.weightKg?.toString() ?? "");
+  const [age, setAge] = useState(profile.age?.toString() ?? "");
+  const [sex, setSex] = useState<Sex | null>(profile.sex);
+  const [experience, setExperience] = useState<Experience | null>(profile.experience);
 
-  const nombre = (v: string, min: number, max: number): number | null => {
+  const toNumber = (v: string, min: number, max: number): number | null => {
     const n = Number(v.replace(",", "."));
     return Number.isFinite(n) && n >= min && n <= max ? n : null;
   };
 
-  const enregistrer = () => {
+  const persist = () => {
     profileStore.set({
-      ...profil,
-      tailleCm: nombre(taille, 120, 230),
-      poidsKg: nombre(poids, 30, 300),
-      age: nombre(age, 12, 100),
-      sexe,
+      ...profile,
+      heightCm: toNumber(height, 120, 230),
+      weightKg: toNumber(weight, 30, 300),
+      age: toNumber(age, 12, 100),
+      sex,
       experience,
     });
-    onSuivant();
+    onNext();
   };
 
   return (
     <>
-      <Titre sur="Étape 1 sur 4">Parle-nous de toi</Titre>
+      <Heading eyebrow="Étape 1 eyebrow 4">Parle-nous de toi</Heading>
       <p className="mt-3 text-sm text-muted">
         Tout est facultatif. Ces informations servent à calibrer le programme et à
-        estimer tes besoins alimentaires — tu peux passer et les remplir plus tard.
+        estimer tes needs alimentaires — tu peux passer et les remplir plus tard.
       </p>
 
       <div className="mt-5 grid grid-cols-3 gap-3">
-        <Champ id="taille" label="Taille" unite="cm" value={taille} onChange={setTaille} placeholder="180" />
-        <Champ id="poids" label="Poids" unite="kg" value={poids} onChange={setPoids} placeholder="80" />
-        <Champ id="age" label="Âge" unite="ans" value={age} onChange={setAge} placeholder="30" />
+        <Field id="height" label="Taille" unit="cm" value={height} onChange={setHeight} placeholder="180" />
+        <Field id="weight" label="Poids" unit="kg" value={weight} onChange={setWeight} placeholder="80" />
+        <Field id="age" label="Âge" unit="ans" value={age} onChange={setAge} placeholder="30" />
       </div>
 
-      <Groupe label="Sexe">
+      <FieldGroup label="Sex">
         {SEXES.map((s) => (
-          <Puce key={s.id} actif={sexe === s.id} onClick={() => setSexe(sexe === s.id ? null : s.id)}>
-            {s.nom}
-          </Puce>
+          <Chip key={s.id} active={sex === s.id} onClick={() => setSex(sex === s.id ? null : s.id)}>
+            {s.name}
+          </Chip>
         ))}
-      </Groupe>
+      </FieldGroup>
 
-      <Groupe label="Expérience en musculation">
+      <FieldGroup label="Expérience en musculation">
         {EXPERIENCES.map((e) => (
-          <Puce
+          <Chip
             key={e.id}
-            actif={experience === e.id}
+            active={experience === e.id}
             onClick={() => setExperience(experience === e.id ? null : e.id)}
           >
-            {e.nom}
-          </Puce>
+            {e.name}
+          </Chip>
         ))}
-      </Groupe>
+      </FieldGroup>
 
-      <Principal onClick={enregistrer}>Continuer</Principal>
-      <Secondaire onClick={onPasser}>Passer cette étape</Secondaire>
+      <PrimaryButton onClick={persist}>Continuer</PrimaryButton>
+      <LinkButton onClick={onSkip}>Passer cette étape</LinkButton>
     </>
   );
 }
 
-function Groupe({ label, children }: { label: string; children: React.ReactNode }) {
+function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mt-4">
       <div className="text-[0.7rem] tracking-[0.15em] text-muted uppercase">{label}</div>
@@ -274,12 +274,12 @@ function Groupe({ label, children }: { label: string; children: React.ReactNode 
   );
 }
 
-function Puce({
-  actif,
+function Chip({
+  active,
   onClick,
   children,
 }: {
-  actif: boolean;
+  active: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -288,7 +288,7 @@ function Puce({
       type="button"
       onClick={onClick}
       className={`rounded-full border px-3 py-1 text-sm transition ${
-        actif
+        active
           ? "border-accent bg-accent-soft font-medium text-accent"
           : "border-border2 text-muted hover:text-text"
       }`}
@@ -298,17 +298,17 @@ function Puce({
   );
 }
 
-function Champ({
+function Field({
   id,
   label,
-  unite,
+  unit,
   value,
   onChange,
   placeholder,
 }: {
   id: string;
   label: string;
-  unite: string;
+  unit: string;
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
@@ -325,7 +325,7 @@ function Champ({
           placeholder={placeholder}
           className="font-display w-full rounded-xl border border-border bg-bg px-3 py-2 text-2xl text-text outline-none transition focus:border-accent"
         />
-        <span className="text-xs text-muted">{unite}</span>
+        <span className="text-xs text-muted">{unit}</span>
       </span>
     </label>
   );
@@ -333,7 +333,7 @@ function Champ({
 
 /* ---------------------------------------------------------------- étape 2 */
 
-function EtapeObjectif({
+function StepGoal({
   onSport,
   onNutrition,
 }: {
@@ -342,21 +342,21 @@ function EtapeObjectif({
 }) {
   return (
     <>
-      <Titre sur="Étape 2 sur 4">Sur quoi veux-tu agir ?</Titre>
+      <Heading eyebrow="Étape 2 eyebrow 4">Sur quoi veux-tu agir ?</Heading>
       <div className="mt-5 flex flex-col gap-2">
-        <Carte
-          titre="Programme sportif"
-          resume="On te construit un programme d'entraînement complet"
+        <OptionCard
+          title="Programme sportif"
+          summary="On te construit un programme d'entraînement complet"
           onClick={onSport}
         />
-        <Carte
-          titre="Alimentation"
-          resume="On estime tes besoins en calories et en macronutriments"
+        <OptionCard
+          title="Alimentation"
+          summary="On estime tes needs en calories et en macronutriments"
           onClick={onNutrition}
         />
       </div>
       <p className="mt-4 text-xs text-muted">
-        Tu pourras relancer l&apos;assistant pour l&apos;autre volet depuis ton profil.
+        Tu pourras relancer l&apos;assistant pour l&apos;autre volet depuis ton profile.
       </p>
     </>
   );
@@ -364,195 +364,195 @@ function EtapeObjectif({
 
 /* ---------------------------------------------------------------- étape 3 */
 
-function EtapeFrequence({
-  valeur,
+function StepFrequency({
+  value,
   onChange,
-  onSuivant,
+  onNext,
 }: {
-  valeur: number;
+  value: number;
   onChange: (v: number) => void;
-  onSuivant: () => void;
+  onNext: () => void;
 }) {
-  const choisie = FREQUENCES.find((f) => f.jours === valeur);
+  const selected = FREQUENCIES.find((f) => f.days === value);
   return (
     <>
-      <Titre sur="Étape 3 sur 4">Combien de séances par semaine ?</Titre>
+      <Heading eyebrow="Étape 3 eyebrow 4">Combien de séances par semaine ?</Heading>
       <p className="mt-3 text-sm text-muted">
         Plus de séances, c&apos;est plus de volume d&apos;entraînement, donc des
-        progrès plus rapides. Jusqu&apos;à un point : au-delà de cinq jours, c&apos;est
+        progrès plus rapides. Jusqu&apos;à un point : au-delà de cinq days, c&apos;est
         la récupération qui limite, pas l&apos;entraînement.
       </p>
       <div className="mt-5 flex flex-wrap gap-1.5">
-        {FREQUENCES.map((f) => (
+        {FREQUENCIES.map((f) => (
           <button
-            key={f.jours}
+            key={f.days}
             type="button"
-            onClick={() => onChange(f.jours)}
+            onClick={() => onChange(f.days)}
             className={`font-display size-12 rounded-full border text-xl transition ${
-              valeur === f.jours
+              value === f.days
                 ? "border-accent bg-accent text-accent-fg"
                 : "border-border2 text-muted hover:text-text"
             }`}
           >
-            {f.jours}
+            {f.days}
           </button>
         ))}
       </div>
-      {choisie ? (
+      {selected ? (
         <p className="mt-4 rounded-xl bg-surface2 px-4 py-3 text-sm text-muted">
-          <span className="text-text">{choisie.jours} séances</span> — {choisie.note}
+          <span className="text-text">{selected.days} séances</span> — {selected.note}
         </p>
       ) : null}
-      <Principal onClick={onSuivant}>Continuer</Principal>
+      <PrimaryButton onClick={onNext}>Continuer</PrimaryButton>
     </>
   );
 }
 
 /* ---------------------------------------------------------------- étape 4 */
 
-function EtapeType({
-  frequence,
-  enCours,
-  erreur,
-  onChoisir,
-  onRetour,
+function StepType({
+  frequency,
+  busy,
+  error,
+  onChoose,
+  onBack,
 }: {
-  frequence: number;
-  enCours: boolean;
-  erreur: string | null;
-  onChoisir: (t: TypeProgramme) => void;
-  onRetour: () => void;
+  frequency: number;
+  busy: boolean;
+  error: string | null;
+  onChoose: (t: ProgramType) => void;
+  onBack: () => void;
 }) {
-  const adaptes = TYPES.filter((t) => t.jours.includes(frequence));
-  const autres = TYPES.filter((t) => !t.jours.includes(frequence));
+  const suited = PROGRAM_TYPES.filter((t) => t.days.includes(frequency));
+  const others = PROGRAM_TYPES.filter((t) => !t.days.includes(frequency));
 
   return (
     <>
-      <Titre sur="Étape 4 sur 4">Quel type de programme ?</Titre>
+      <Heading eyebrow="Étape 4 eyebrow 4">Quel type de programme ?</Heading>
       <p className="mt-3 text-sm text-muted">
-        Adaptés à {frequence} séance{frequence > 1 ? "s" : ""} par semaine :
+        Adaptés à {frequency} séance{frequency > 1 ? "s" : ""} par semaine :
       </p>
       <div className="mt-4 flex flex-col gap-2">
-        {adaptes.map((t) => (
-          <Carte key={t.id} titre={t.nom} resume={t.resume} onClick={() => onChoisir(t.id)} />
+        {suited.map((t) => (
+          <OptionCard key={t.id} title={t.name} summary={t.summary} onClick={() => onChoose(t.id)} />
         ))}
       </div>
-      {autres.length ? (
+      {others.length ? (
         <>
           <p className="mt-5 text-xs text-muted">
-            Possibles, mais mieux adaptés à un autre nombre de séances :
+            Possibles, mais mieux adaptés à un autre toNumber de séances :
           </p>
           <div className="mt-2 flex flex-col gap-2 opacity-60">
-            {autres.map((t) => (
-              <Carte
+            {others.map((t) => (
+              <OptionCard
                 key={t.id}
-                titre={t.nom}
-                resume={`${t.resume} — conçu pour ${t.jours.join(", ")} jours`}
-                onClick={() => onChoisir(t.id)}
+                title={t.name}
+                summary={`${t.summary} — conçu pour ${t.days.join(", ")} days`}
+                onClick={() => onChoose(t.id)}
               />
             ))}
           </div>
         </>
       ) : null}
-      {enCours ? <p className="mt-4 text-sm text-muted">Construction du programme…</p> : null}
-      {erreur ? <p className="mt-4 text-sm text-accent2">{erreur}</p> : null}
-      <Secondaire onClick={onRetour}>← Changer la fréquence</Secondaire>
+      {busy ? <p className="mt-4 text-sm text-muted">Construction du programme…</p> : null}
+      {error ? <p className="mt-4 text-sm text-accent2">{error}</p> : null}
+      <LinkButton onClick={onBack}>← Changer la fréquence</LinkButton>
     </>
   );
 }
 
 /* ------------------------------------------------------------- nutrition */
 
-function EtapeNutrition({
-  besoins,
-  onCalculer,
-  onTermine,
-  onRetour,
+function StepNutrition({
+  needs,
+  onCompute,
+  onDone,
+  onBack,
 }: {
-  besoins: Besoins | null;
-  onCalculer: (o: Objectif, seances: number) => void;
-  onTermine: () => void;
-  onRetour: () => void;
+  needs: Needs | null;
+  onCompute: (o: Goal, sessions: number) => void;
+  onDone: () => void;
+  onBack: () => void;
 }) {
-  const [objectif, setObjectif] = useState<Objectif>("masse");
-  const [seances, setSeances] = useState(4);
+  const [goal, setGoal] = useState<Goal>("masse");
+  const [sessions, setSessions] = useState(4);
 
   return (
     <>
-      <Titre sur="Alimentation">Tes besoins estimés</Titre>
+      <Heading eyebrow="Alimentation">Tes needs estimés</Heading>
       <p className="mt-3 text-sm text-muted">
         Calcul par la formule de Mifflin-St Jeor. Ce sont des estimations de
-        population : prends-les comme point de départ et ajuste-les sur
-        l&apos;évolution réelle de ton poids.
+        population : prends-les comme point de départ et ajuste-les eyebrow
+        l&apos;évolution réelle de ton weight.
       </p>
 
       <div className="mt-5 flex flex-col gap-2">
-        {OBJECTIFS.map((o) => (
-          <Carte
+        {GOALS.map((o) => (
+          <OptionCard
             key={o.id}
-            titre={o.nom}
-            resume={o.resume}
-            actif={objectif === o.id}
-            onClick={() => setObjectif(o.id)}
+            title={o.name}
+            summary={o.summary}
+            active={goal === o.id}
+            onClick={() => setGoal(o.id)}
           />
         ))}
       </div>
 
-      <Groupe label="Séances par semaine">
-        {FREQUENCES.map((f) => (
-          <Puce key={f.jours} actif={seances === f.jours} onClick={() => setSeances(f.jours)}>
-            {f.jours}
-          </Puce>
+      <FieldGroup label="Séances par semaine">
+        {FREQUENCIES.map((f) => (
+          <Chip key={f.days} active={sessions === f.days} onClick={() => setSessions(f.days)}>
+            {f.days}
+          </Chip>
         ))}
-      </Groupe>
+      </FieldGroup>
 
-      <Principal onClick={() => onCalculer(objectif, seances)}>Calculer</Principal>
+      <PrimaryButton onClick={() => onCompute(goal, sessions)}>Calculer</PrimaryButton>
 
-      {besoins && "manquant" in besoins ? (
+      {needs && "missing" in needs ? (
         <p className="mt-4 rounded-xl bg-surface2 px-4 py-3 text-sm text-muted">
-          Il manque {besoins.manquant.join(", ")} pour faire ce calcul. Renseigne-les
-          dans ton profil, puis reviens ici.
+          Il manque {needs.missing.join(", ")} pour faire ce calcul. Renseigne-les
+          dans ton profile, puis reviens ici.
         </p>
-      ) : besoins ? (
+      ) : needs ? (
         <>
           <div className="mt-5 grid grid-cols-2 gap-2">
-            <Tuile valeur={`${besoins.calories}`} unite="kcal/jour" label="Objectif" fort />
-            <Tuile valeur={`${besoins.proteines}`} unite="g" label="Protéines" />
-            <Tuile valeur={`${besoins.glucides}`} unite="g" label="Glucides" />
-            <Tuile valeur={`${besoins.lipides}`} unite="g" label="Lipides" />
+            <StatTile value={`${needs.calories}`} unit="kcal/jour" label="Goal" strong />
+            <StatTile value={`${needs.protein}`} unit="g" label="Protéines" />
+            <StatTile value={`${needs.carbs}`} unit="g" label="Glucides" />
+            <StatTile value={`${needs.fat}`} unit="g" label="Lipides" />
           </div>
           <p className="mt-3 text-xs text-muted">
-            Métabolisme de base {besoins.metabolismeBase} kcal · dépense estimée{" "}
-            {besoins.depenseTotale} kcal
-            {besoins.approximeSexe
-              ? " · sexe non renseigné : valeur intermédiaire entre les deux formules"
+            Métabolisme de base {needs.bmr} kcal · dépense estimée{" "}
+            {needs.tdee} kcal
+            {needs.sexApproximated
+              ? " · sex non renseigné : value intermédiaire entre les deux formules"
               : ""}
           </p>
-          <Principal onClick={onTermine}>Terminer</Principal>
+          <PrimaryButton onClick={onDone}>Terminer</PrimaryButton>
         </>
       ) : null}
 
-      <Secondaire onClick={onRetour}>← Retour</Secondaire>
+      <LinkButton onClick={onBack}>← Retour</LinkButton>
     </>
   );
 }
 
-function Tuile({
-  valeur,
-  unite,
+function StatTile({
+  value,
+  unit,
   label,
-  fort,
+  strong,
 }: {
-  valeur: string;
-  unite: string;
+  value: string;
+  unit: string;
   label: string;
-  fort?: boolean;
+  strong?: boolean;
 }) {
   return (
-    <div className={`rounded-xl px-4 py-3 ${fort ? "bg-accent-soft" : "bg-calm-soft"}`}>
-      <div className={`font-display text-2xl leading-none ${fort ? "text-accent" : "text-text"}`}>
-        {valeur}
-        <span className="ml-1 text-xs text-muted">{unite}</span>
+    <div className={`rounded-xl px-4 py-3 ${strong ? "bg-accent-soft" : "bg-calm-soft"}`}>
+      <div className={`font-display text-2xl leading-none ${strong ? "text-accent" : "text-text"}`}>
+        {value}
+        <span className="ml-1 text-xs text-muted">{unit}</span>
       </div>
       <div className="mt-1 text-[0.7rem] tracking-[0.15em] text-muted uppercase">{label}</div>
     </div>

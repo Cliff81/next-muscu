@@ -10,7 +10,7 @@
  * navigateur utilise. À déclarer dans les variables d'environnement du
  * déploiement Convex : `npx convex env set GOOGLE_CLIENT_ID <valeur>`.
  */
-export default {
+const authConfig = {
   providers: [
     {
       domain: "https://accounts.google.com",
@@ -18,3 +18,5 @@ export default {
     },
   ],
 };
+
+export default authConfig;

@@ -7,6 +7,9 @@ const eslintConfig = defineConfig([
   ...nextTs,
   // Override default ignores of eslint-config-next.
   globalIgnores([
+    // Code produit par `convex codegen` : on ne le modifie pas, donc on ne
+    // le contrôle pas.
+    "convex/_generated/**",
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",

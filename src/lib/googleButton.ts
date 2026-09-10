@@ -1,6 +1,6 @@
 "use client";
 
-import { GOOGLE_CLIENT_ID, googleConfigure } from "@/lib/profile";
+import { GOOGLE_CLIENT_ID, googleConfigured } from "@/lib/profile";
 
 type Credential = { credential?: string };
 
@@ -11,7 +11,7 @@ declare global {
         id: {
           initialize: (config: {
             client_id: string;
-            callback: (reponse: Credential) => void;
+            callback: (response: Credential) => void;
           }) => void;
           renderButton: (
             parent: HTMLElement,
@@ -25,16 +25,16 @@ declare global {
 
 const GIS_SRC = "https://accounts.google.com/gsi/client";
 
-function chargerScript(): Promise<void> {
+function loadScript(): Promise<void> {
   return new Promise((resolve, reject) => {
-    const existant = document.querySelector<HTMLScriptElement>('script[data-gis="1"]');
-    if (existant) {
-      if (existant.dataset.loaded === "1") {
+    const existing = document.querySelector<HTMLScriptElement>('script[data-gis="1"]');
+    if (existing) {
+      if (existing.dataset.loaded === "1") {
         resolve();
         return;
       }
-      existant.addEventListener("load", () => resolve());
-      existant.addEventListener("error", () => reject(new Error("script")));
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("script")));
       return;
     }
     const el = document.createElement("script");
@@ -59,24 +59,24 @@ function chargerScript(): Promise<void> {
  * un *callback ref*, elle évite l'effet et la lecture de `ref.current` que les
  * règles React de Next 16 rejettent.
  */
-export async function monterBoutonGoogle(
+export async function mountGoogleButton(
   el: HTMLElement,
-  onJeton: (jwt: string) => void
+  onToken: (jwt: string) => void
 ): Promise<string | null> {
-  if (!googleConfigure()) return null;
+  if (!googleConfigured()) return null;
   // Le ref de rappel peut s'exécuter deux fois en développement : sans cette
   // marque, le bouton Google serait rendu en double.
   if (el.dataset.monte === "1") return null;
   el.dataset.monte = "1";
 
   try {
-    await chargerScript();
+    await loadScript();
     const id = window.google?.accounts?.id;
     if (!id) throw new Error("script");
     id.initialize({
       client_id: GOOGLE_CLIENT_ID,
-      callback: (reponse) => {
-        if (reponse.credential) onJeton(reponse.credential);
+      callback: (response) => {
+        if (response.credential) onToken(response.credential);
       },
     });
     id.renderButton(el, {

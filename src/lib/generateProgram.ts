@@ -11,157 +11,157 @@
  * et exportable.
  */
 import {
-  trierPourSeance,
-  type Equipement,
-  type ExerciceCatalogue,
+  sortForSession,
+  type Equipment,
+  type CatalogExercise,
   type Muscle,
-  type Niveau,
-} from "@/lib/catalogue";
-import { MUSCLES_FR, EQUIPEMENT_FR } from "@/lib/catalogue";
+  type Level,
+} from "@/lib/catalog";
+import { MUSCLE_LABELS, EQUIPMENT_LABELS } from "@/lib/catalog";
 import type { Day, Exercise, Program, Section } from "@/lib/types";
 
-export type TypeProgramme = "fullbody" | "hautbas" | "ppl" | "split" | "endurance";
+export type ProgramType = "fullbody" | "hautbas" | "ppl" | "split" | "endurance";
 
-export const TYPES: { id: TypeProgramme; nom: string; resume: string; jours: number[] }[] = [
+export const PROGRAM_TYPES: { id: ProgramType; name: string; summary: string; days: number[] }[] = [
   {
     id: "fullbody",
-    nom: "Full body",
-    resume: "Tout le corps à chaque séance. Idéal à 2 ou 3 séances.",
-    jours: [2, 3, 4],
+    name: "Full body",
+    summary: "Tout le corps à chaque séance. Idéal à 2 ou 3 séances.",
+    days: [2, 3, 4],
   },
   {
     id: "hautbas",
-    nom: "Haut / Bas",
-    resume: "Un jour le haut, un jour le bas. Bon compromis volume et récupération.",
-    jours: [2, 4, 6],
+    name: "Haut / Bas",
+    summary: "Un jour le haut, un jour le bas. Bon compromis volume et récupération.",
+    days: [2, 4, 6],
   },
   {
     id: "ppl",
-    nom: "Push / Pull / Jambes",
-    resume: "Poussée, tirage, jambes. Le classique au-delà de 3 séances.",
-    jours: [3, 6],
+    name: "Push / Pull / Jambes",
+    summary: "Poussée, tirage, jambes. Le classique au-delà de 3 séances.",
+    days: [3, 6],
   },
   {
     id: "split",
-    nom: "Split par groupe",
-    resume: "Un ou deux groupes musculaires par séance. Beaucoup de volume par muscle.",
-    jours: [4, 5, 6],
+    name: "Split par groupe",
+    summary: "Un ou deux groupes musculaires par séance. Beaucoup de volume par muscle.",
+    days: [4, 5, 6],
   },
   {
     id: "endurance",
-    nom: "Endurance",
-    resume: "Séries longues, repos courts, circuits. Cardio et condition physique.",
-    jours: [2, 3, 4, 5, 6],
+    name: "Endurance",
+    summary: "Séries longues, repos courts, circuits. Cardio et condition physique.",
+    days: [2, 3, 4, 5, 6],
   },
 ];
 
-type ModeleSection = { titre: string; muscles: Muscle[]; nombre: number };
-type ModeleJour = { titre: string; description: string; sections: ModeleSection[] };
+type SectionTemplate = { title: string; muscles: Muscle[]; count: number };
+type DayTemplate = { title: string; description: string; sections: SectionTemplate[] };
 
-const HAUT: ModeleSection[] = [
-  { titre: "Pectoraux", muscles: ["chest"], nombre: 2 },
-  { titre: "Dos", muscles: ["lats", "middle back"], nombre: 2 },
-  { titre: "Épaules", muscles: ["shoulders"], nombre: 1 },
-  { titre: "Bras", muscles: ["biceps", "triceps"], nombre: 2 },
+const UPPER: SectionTemplate[] = [
+  { title: "Pectoraux", muscles: ["chest"], count: 2 },
+  { title: "Dos", muscles: ["lats", "middle back"], count: 2 },
+  { title: "Épaules", muscles: ["shoulders"], count: 1 },
+  { title: "Bras", muscles: ["biceps", "triceps"], count: 2 },
 ];
 
-const BAS: ModeleSection[] = [
-  { titre: "Quadriceps", muscles: ["quadriceps"], nombre: 2 },
-  { titre: "Ischios & fessiers", muscles: ["hamstrings", "glutes"], nombre: 2 },
-  { titre: "Mollets", muscles: ["calves"], nombre: 1 },
-  { titre: "Abdominaux", muscles: ["abdominals"], nombre: 1 },
+const LOWER: SectionTemplate[] = [
+  { title: "Quadriceps", muscles: ["quadriceps"], count: 2 },
+  { title: "Ischios & fessiers", muscles: ["hamstrings", "glutes"], count: 2 },
+  { title: "Mollets", muscles: ["calves"], count: 1 },
+  { title: "Abdominaux", muscles: ["abdominals"], count: 1 },
 ];
 
-const CORPS_ENTIER: ModeleSection[] = [
-  { titre: "Jambes", muscles: ["quadriceps", "hamstrings", "glutes"], nombre: 2 },
-  { titre: "Pectoraux", muscles: ["chest"], nombre: 1 },
-  { titre: "Dos", muscles: ["lats", "middle back"], nombre: 1 },
-  { titre: "Épaules", muscles: ["shoulders"], nombre: 1 },
-  { titre: "Bras", muscles: ["biceps", "triceps"], nombre: 1 },
-  { titre: "Abdominaux", muscles: ["abdominals"], nombre: 1 },
+const FULL_BODY: SectionTemplate[] = [
+  { title: "Jambes", muscles: ["quadriceps", "hamstrings", "glutes"], count: 2 },
+  { title: "Pectoraux", muscles: ["chest"], count: 1 },
+  { title: "Dos", muscles: ["lats", "middle back"], count: 1 },
+  { title: "Épaules", muscles: ["shoulders"], count: 1 },
+  { title: "Bras", muscles: ["biceps", "triceps"], count: 1 },
+  { title: "Abdominaux", muscles: ["abdominals"], count: 1 },
 ];
 
-const POUSSEE: ModeleSection[] = [
-  { titre: "Pectoraux", muscles: ["chest"], nombre: 3 },
-  { titre: "Épaules", muscles: ["shoulders"], nombre: 2 },
-  { titre: "Triceps", muscles: ["triceps"], nombre: 2 },
+const PUSH: SectionTemplate[] = [
+  { title: "Pectoraux", muscles: ["chest"], count: 3 },
+  { title: "Épaules", muscles: ["shoulders"], count: 2 },
+  { title: "Triceps", muscles: ["triceps"], count: 2 },
 ];
 
-const TIRAGE: ModeleSection[] = [
-  { titre: "Dos", muscles: ["lats", "middle back"], nombre: 3 },
-  { titre: "Trapèzes", muscles: ["traps"], nombre: 1 },
-  { titre: "Biceps", muscles: ["biceps"], nombre: 2 },
+const PULL: SectionTemplate[] = [
+  { title: "Dos", muscles: ["lats", "middle back"], count: 3 },
+  { title: "Trapèzes", muscles: ["traps"], count: 1 },
+  { title: "Biceps", muscles: ["biceps"], count: 2 },
 ];
 
-const JAMBES: ModeleSection[] = [
-  { titre: "Quadriceps", muscles: ["quadriceps"], nombre: 2 },
-  { titre: "Ischios & fessiers", muscles: ["hamstrings", "glutes"], nombre: 2 },
-  { titre: "Mollets", muscles: ["calves"], nombre: 1 },
-  { titre: "Abdominaux", muscles: ["abdominals"], nombre: 1 },
+const LEGS: SectionTemplate[] = [
+  { title: "Quadriceps", muscles: ["quadriceps"], count: 2 },
+  { title: "Ischios & fessiers", muscles: ["hamstrings", "glutes"], count: 2 },
+  { title: "Mollets", muscles: ["calves"], count: 1 },
+  { title: "Abdominaux", muscles: ["abdominals"], count: 1 },
 ];
 
-/** Rotations de séances par type. On prend les `frequence` premières. */
-const ROTATIONS: Record<TypeProgramme, ModeleJour[]> = {
+/** Rotations de séances par type. On garde les `frequency` premiers jours. */
+const ROTATIONS: Record<ProgramType, DayTemplate[]> = {
   fullbody: [
-    { titre: "Full body A", description: "Tout le corps — priorité aux jambes et au dos", sections: CORPS_ENTIER },
-    { titre: "Full body B", description: "Tout le corps — priorité à la poussée", sections: CORPS_ENTIER },
-    { titre: "Full body C", description: "Tout le corps — variantes différentes", sections: CORPS_ENTIER },
-    { titre: "Full body D", description: "Tout le corps — dernière variation", sections: CORPS_ENTIER },
+    { title: "Full body A", description: "Tout le corps — priorité aux jambes et au dos", sections: FULL_BODY },
+    { title: "Full body B", description: "Tout le corps — priorité à la poussée", sections: FULL_BODY },
+    { title: "Full body C", description: "Tout le corps — variantes différentes", sections: FULL_BODY },
+    { title: "Full body D", description: "Tout le corps — dernière variation", sections: FULL_BODY },
   ],
   hautbas: [
-    { titre: "Haut du corps A", description: "Poussée et tirage", sections: HAUT },
-    { titre: "Bas du corps A", description: "Quadriceps, ischios, mollets", sections: BAS },
-    { titre: "Haut du corps B", description: "Autres angles, autre matériel", sections: HAUT },
-    { titre: "Bas du corps B", description: "Variantes et unilatéral", sections: BAS },
-    { titre: "Haut du corps C", description: "Volume complémentaire", sections: HAUT },
-    { titre: "Bas du corps C", description: "Volume complémentaire", sections: BAS },
+    { title: "Haut du corps A", description: "Poussée et tirage", sections: UPPER },
+    { title: "Bas du corps A", description: "Quadriceps, ischios, mollets", sections: LOWER },
+    { title: "Haut du corps B", description: "Autres angles, autre matériel", sections: UPPER },
+    { title: "Bas du corps B", description: "Variantes et unilatéral", sections: LOWER },
+    { title: "Haut du corps C", description: "Volume complémentaire", sections: UPPER },
+    { title: "Bas du corps C", description: "Volume complémentaire", sections: LOWER },
   ],
   ppl: [
-    { titre: "Poussée", description: "Pectoraux, épaules, triceps", sections: POUSSEE },
-    { titre: "Tirage", description: "Dos, trapèzes, biceps", sections: TIRAGE },
-    { titre: "Jambes", description: "Quadriceps, ischios, fessiers, mollets", sections: JAMBES },
-    { titre: "Poussée B", description: "Autres angles de poussée", sections: POUSSEE },
-    { titre: "Tirage B", description: "Autres angles de tirage", sections: TIRAGE },
-    { titre: "Jambes B", description: "Variantes et unilatéral", sections: JAMBES },
+    { title: "Poussée", description: "Pectoraux, épaules, triceps", sections: PUSH },
+    { title: "Tirage", description: "Dos, trapèzes, biceps", sections: PULL },
+    { title: "Jambes", description: "Quadriceps, ischios, fessiers, mollets", sections: LEGS },
+    { title: "Poussée B", description: "Autres angles de poussée", sections: PUSH },
+    { title: "Tirage B", description: "Autres angles de tirage", sections: PULL },
+    { title: "Jambes B", description: "Variantes et unilatéral", sections: LEGS },
   ],
   split: [
-    { titre: "Pectoraux + Triceps", description: "Poussée horizontale et verticale", sections: [
-      { titre: "Pectoraux", muscles: ["chest"], nombre: 4 },
-      { titre: "Triceps", muscles: ["triceps"], nombre: 2 },
+    { title: "Pectoraux + Triceps", description: "Poussée horizontale et verticale", sections: [
+      { title: "Pectoraux", muscles: ["chest"], count: 4 },
+      { title: "Triceps", muscles: ["triceps"], count: 2 },
     ] },
-    { titre: "Dos + Biceps", description: "Tirages vertical et horizontal", sections: [
-      { titre: "Dos", muscles: ["lats", "middle back"], nombre: 4 },
-      { titre: "Biceps", muscles: ["biceps"], nombre: 2 },
+    { title: "Dos + Biceps", description: "Tirages vertical et horizontal", sections: [
+      { title: "Dos", muscles: ["lats", "middle back"], count: 4 },
+      { title: "Biceps", muscles: ["biceps"], count: 2 },
     ] },
-    { titre: "Épaules", description: "Deltoïdes sur les trois faisceaux", sections: [
-      { titre: "Épaules", muscles: ["shoulders"], nombre: 4 },
-      { titre: "Trapèzes", muscles: ["traps"], nombre: 1 },
+    { title: "Épaules", description: "Deltoïdes sur les trois faisceaux", sections: [
+      { title: "Épaules", muscles: ["shoulders"], count: 4 },
+      { title: "Trapèzes", muscles: ["traps"], count: 1 },
     ] },
-    { titre: "Jambes", description: "Quadriceps, ischios, fessiers, mollets", sections: JAMBES },
-    { titre: "Bras + Abdos", description: "Biceps, triceps, gainage", sections: [
-      { titre: "Biceps", muscles: ["biceps"], nombre: 2 },
-      { titre: "Triceps", muscles: ["triceps"], nombre: 2 },
-      { titre: "Abdominaux", muscles: ["abdominals"], nombre: 2 },
+    { title: "Jambes", description: "Quadriceps, ischios, fessiers, mollets", sections: LEGS },
+    { title: "Bras + Abdos", description: "Biceps, triceps, gainage", sections: [
+      { title: "Biceps", muscles: ["biceps"], count: 2 },
+      { title: "Triceps", muscles: ["triceps"], count: 2 },
+      { title: "Abdominaux", muscles: ["abdominals"], count: 2 },
     ] },
-    { titre: "Full body", description: "Rattrapage sur les points faibles", sections: CORPS_ENTIER },
+    { title: "Full body", description: "Rattrapage sur les points faibles", sections: FULL_BODY },
   ],
   endurance: [
-    { titre: "Circuit corps entier A", description: "Séries longues, repos courts", sections: CORPS_ENTIER },
-    { titre: "Circuit haut du corps", description: "Séries longues sur le haut", sections: HAUT },
-    { titre: "Circuit bas du corps", description: "Séries longues sur le bas", sections: BAS },
-    { titre: "Circuit corps entier B", description: "Autres mouvements", sections: CORPS_ENTIER },
-    { titre: "Circuit haut du corps B", description: "Volume complémentaire", sections: HAUT },
-    { titre: "Circuit bas du corps B", description: "Volume complémentaire", sections: BAS },
+    { title: "Circuit corps entier A", description: "Séries longues, repos courts", sections: FULL_BODY },
+    { title: "Circuit haut du corps", description: "Séries longues sur le haut", sections: UPPER },
+    { title: "Circuit bas du corps", description: "Séries longues sur le bas", sections: LOWER },
+    { title: "Circuit corps entier B", description: "Autres mouvements", sections: FULL_BODY },
+    { title: "Circuit haut du corps B", description: "Volume complémentaire", sections: UPPER },
+    { title: "Circuit bas du corps B", description: "Volume complémentaire", sections: LOWER },
   ],
 };
 
-const JOURS_SEMAINE = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+const WEEKDAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
 /**
  * Matériel supposé disponible : une salle classique. Le catalogue contient
  * aussi des exercices exotiques qu'on écarte ainsi.
  */
-export const MATERIEL_SALLE: Equipement[] = [
+export const GYM_EQUIPMENT: Equipment[] = [
   "barbell",
   "dumbbell",
   "cable",
@@ -171,108 +171,108 @@ export const MATERIEL_SALLE: Equipement[] = [
 ];
 
 /** Catégories écartées : elles ne construisent pas une séance de renforcement. */
-const CATEGORIES_EXCLUES = new Set(["stretching", "olympic weightlifting", "strongman"]);
+const EXCLUDED_CATEGORIES = new Set(["stretching", "olympic weightlifting", "strongman"]);
 
-export type Reponses = {
-  frequence: number;
-  type: TypeProgramme;
-  niveau: Niveau;
+export type Answers = {
+  frequency: number;
+  type: ProgramType;
+  level: Level;
 };
 
-function seriesEtReps(
-  type: TypeProgramme,
-  polyarticulaire: boolean
+function setsAndReps(
+  type: ProgramType,
+  isCompound: boolean
 ): Pick<Exercise, "series" | "reps" | "restLabel" | "restSeconds"> {
   if (type === "endurance") {
     return { series: 3, reps: "15–20", restLabel: "45 s repos", restSeconds: 45 };
   }
-  return polyarticulaire
+  return isCompound
     ? { series: 4, reps: "8–10", restLabel: "2 min repos", restSeconds: 120 }
     : { series: 3, reps: "10–12", restLabel: "75 s repos", restSeconds: 75 };
 }
 
-export function genererProgramme(
-  catalogue: ExerciceCatalogue[],
-  reponses: Reponses
+export function generateProgram(
+  catalog: CatalogExercise[],
+  answers: Answers
 ): Program {
-  const { frequence, type, niveau } = reponses;
+  const { frequency, type, level } = answers;
   const rotation = ROTATIONS[type];
-  const utilises = new Set<string>();
+  const used = new Set<string>();
 
-  const utilisables = catalogue.filter(
+  const usable = catalog.filter(
     (e) =>
-      (e.equipment === null || MATERIEL_SALLE.includes(e.equipment)) &&
-      !(e.category && CATEGORIES_EXCLUES.has(e.category))
+      (e.equipment === null || GYM_EQUIPMENT.includes(e.equipment)) &&
+      !(e.category && EXCLUDED_CATEGORIES.has(e.category))
   );
 
   /**
-   * Combien de mouvements polyarticulaires dans une section de `nombre`
+   * Combien de mouvements polyarticulaires dans une section de `count`
    * exercices. Une séance qui n'empile que des polyarticulaires est épuisante
    * et incomplète : après deux poussées lourdes, c'est l'isolation qui va
    * chercher le muscle.
    */
-  const partPoly = (nombre: number): number => {
-    if (nombre <= 1) return 1;
-    if (nombre <= 3) return Math.min(2, nombre - 1);
+  const compoundShare = (count: number): number => {
+    if (count <= 1) return 1;
+    if (count <= 3) return Math.min(2, count - 1);
     return 2;
   };
 
-  const choisir = (muscles: Muscle[], nombre: number): ExerciceCatalogue[] => {
-    const candidats = trierPourSeance(
-      utilisables.filter((e) => muscles.some((m) => e.muscles.includes(m))),
-      niveau
+  const pick = (muscles: Muscle[], count: number): CatalogExercise[] => {
+    const candidates = sortForSession(
+      usable.filter((e) => muscles.some((m) => e.muscles.includes(m))),
+      level
     );
-    const poly = candidats.filter((e) => e.mechanic === "compound");
-    const isolation = candidats.filter((e) => e.mechanic !== "compound");
+    const poly = candidates.filter((e) => e.mechanic === "compound");
+    const isolation = candidates.filter((e) => e.mechanic !== "compound");
 
-    const retenus: ExerciceCatalogue[] = [];
-    const prendre = (source: ExerciceCatalogue[], combien: number) => {
+    const chosen: CatalogExercise[] = [];
+    const take = (source: CatalogExercise[], remaining: number) => {
       for (const c of source) {
-        if (combien <= 0) break;
-        if (utilises.has(c.id) || retenus.includes(c)) continue;
-        retenus.push(c);
-        utilises.add(c.id);
-        combien--;
+        if (remaining <= 0) break;
+        if (used.has(c.id) || chosen.includes(c)) continue;
+        chosen.push(c);
+        used.add(c.id);
+        remaining--;
       }
     };
 
-    const vise = partPoly(nombre);
-    prendre(poly, vise);
-    prendre(isolation, nombre - retenus.length);
+    const target = compoundShare(count);
+    take(poly, target);
+    take(isolation, count - chosen.length);
     // Si une famille manque pour ce muscle — les mollets ont peu de
     // polyarticulaires, par exemple — l'autre comble le reste.
-    prendre(candidats, nombre - retenus.length);
+    take(candidates, count - chosen.length);
     // Dernier recours : accepter une répétition plutôt qu'une séance trouée.
-    for (const c of candidats) {
-      if (retenus.length >= nombre) break;
-      if (!retenus.includes(c)) retenus.push(c);
+    for (const c of candidates) {
+      if (chosen.length >= count) break;
+      if (!chosen.includes(c)) chosen.push(c);
     }
-    return retenus;
+    return chosen;
   };
 
   const days: Day[] = [];
-  for (let i = 0; i < frequence; i++) {
-    const modele = rotation[i % rotation.length];
+  for (let i = 0; i < frequency; i++) {
+    const template = rotation[i % rotation.length];
     const sections: Section[] = [];
 
-    for (const ms of modele.sections) {
-      const exercices = choisir(ms.muscles, ms.nombre);
-      if (!exercices.length) continue;
+    for (const ms of template.sections) {
+      const exercises = pick(ms.muscles, ms.count);
+      if (!exercises.length) continue;
       sections.push({
-        title: ms.titre,
-        exercises: exercices.map((e, j): Exercise => {
+        title: ms.title,
+        exercises: exercises.map((e, j): Exercise => {
           const poly = e.mechanic === "compound";
           const details = [
-            e.equipment ? EQUIPEMENT_FR[e.equipment] : null,
-            poly ? "polyarticulaire" : "isolation",
+            e.equipment ? EQUIPMENT_LABELS[e.equipment] : null,
+            poly ? "isCompound" : "isolation",
           ]
             .filter(Boolean)
             .join(" · ");
           return {
-            id: `j${i + 1}-${ms.titre.toLowerCase().replace(/\W+/g, "")}-${j + 1}`,
+            id: `j${i + 1}-${ms.title.toLowerCase().replace(/\W+/g, "")}-${j + 1}`,
             name: e.name,
             sub: details,
-            ...seriesEtReps(type, poly),
+            ...setsAndReps(type, poly),
             tip: poly
               ? "Charge la plus lourde de la séance : soigne l'échauffement"
               : undefined,
@@ -282,41 +282,41 @@ export function genererProgramme(
     }
 
     const muscleTags = [
-      ...new Set(modele.sections.flatMap((s) => s.muscles.map((m) => MUSCLES_FR[m]))),
+      ...new Set(template.sections.flatMap((s) => s.muscles.map((m) => MUSCLE_LABELS[m]))),
     ].slice(0, 4);
 
     days.push({
       id: `j${i + 1}`,
       code: `J${i + 1}`,
-      title: modele.titre,
-      description: modele.description,
+      title: template.title,
+      description: template.description,
       muscleTags,
       sections,
       restInfo: {
         duration: type === "endurance" ? "45 min" : "60–75 min",
         warmup: "5–10 min",
-        suggestedDay: JOURS_SEMAINE[Math.round((i * 7) / frequence) % 7],
+        suggestedDay: WEEKDAYS[Math.round((i * 7) / frequency) % 7],
       },
       tips: [
         "Commence par deux séries légères sur le premier exercice",
         type === "endurance"
-          ? "Enchaîne les exercices d'une section en circuit si le temps presse"
+          ? "Enchaîne les exercises d'une section en circuit si le temps presse"
           : "Ajoute du poids dès que tu tiens le haut de la fourchette de répétitions",
         "Note tes charges à chaque séance : c'est la progression qui compte",
       ],
     });
   }
 
-  const nomType = TYPES.find((t) => t.id === type)?.nom ?? type;
+  const typeName = PROGRAM_TYPES.find((t) => t.id === type)?.name ?? type;
 
   return {
     tag: type === "endurance" ? "Endurance — condition physique" : "Renforcement — hypertrophie",
-    title: nomType,
-    titleAccent: `${frequence} jour${frequence > 1 ? "s" : ""}`,
-    subtitle: `Programme généré · ${frequence} séance${frequence > 1 ? "s" : ""} par semaine`,
+    title: typeName,
+    titleAccent: `${frequency} jour${frequency > 1 ? "s" : ""}`,
+    subtitle: `Programme généré · ${frequency} séance${frequency > 1 ? "s" : ""} par semaine`,
     statsRow: [
-      { value: String(frequence), label: "Séances/sem" },
-      { value: String(7 - frequence), label: "Jours off" },
+      { value: String(frequency), label: "Séances/sem" },
+      { value: String(7 - frequency), label: "Jours off" },
       { value: type === "endurance" ? "~45'" : "~70'", label: "Durée/séance" },
     ],
     days,

@@ -1,13 +1,13 @@
 "use client";
 
-import { mensurations, profileStore, sansMensurations } from "@/lib/profile";
+import { measurementsLine, profileStore, withoutMeasurements } from "@/lib/profile";
 import type { Program } from "@/lib/types";
 
 export function Header({ program }: { program: Program }) {
-  const profil = profileStore.useValue();
+  const profile = profileStore.useValue();
   // Les mensurations viennent du profil ; le programme ne porte plus que
   // l'objectif, pour ne pas afficher deux tailles contradictoires.
-  const ligneProfil = [mensurations(profil), sansMensurations(program.subtitle)]
+  const ligneProfil = [measurementsLine(profile), withoutMeasurements(program.subtitle)]
     .filter(Boolean)
     .join(" · ");
 
