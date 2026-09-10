@@ -3,24 +3,27 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ProfileMenu } from "@/components/ProfileMenu";
-import { Logo } from "@/components/Logo";
+import { Brand } from "@/components/Logo";
+import { useMode } from "@/components/ModeBridge";
 import { profileStore } from "@/lib/profile";
 
 const LINKS = [
   { href: "/", label: "Programme" },
   { href: "/progress", label: "Progression" },
+  { href: "/nutrition", label: "Nutrition" },
 ] as const;
 
 /** Bandeau : marque à gauche, navigation en pilules au centre, profil à droite. */
 export function TopBar() {
   const profile = profileStore.useValue();
   const path = usePathname();
+  const mode = useMode();
 
   return (
     <header className="border-b border-border bg-surface">
       <div className="mx-auto flex w-full max-w-[900px] flex-wrap items-center gap-x-4 gap-y-2 px-8 py-3">
-        <Link href="/" aria-label="Stronger — accueil">
-          <Logo />
+        <Link href="/" aria-label="Accueil">
+          <Brand mode={mode} />
         </Link>
 
         <nav className="order-last flex w-full items-center justify-center gap-1 border-t border-border/70 pt-2 sm:order-none sm:mx-auto sm:w-auto sm:border-0 sm:pt-0">

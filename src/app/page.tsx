@@ -4,7 +4,6 @@ import { useState } from "react";
 import { DayPanel } from "@/components/DayPanel";
 import { DayTabs } from "@/components/DayTabs";
 import { Header } from "@/components/Header";
-import { NutritionSection } from "@/components/NutritionSection";
 import { useProgram } from "@/lib/useProgram";
 
 export default function Home() {
@@ -20,7 +19,6 @@ export default function Home() {
         <DayTabs days={program.days} activeIndex={activeIndex} onSelect={setActiveIndex} />
         {activeDay && <DayPanel day={activeDay} />}
       </div>
-      <NutritionSection cards={program.nutrition} />
     </>
   );
 }

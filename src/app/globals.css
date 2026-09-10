@@ -28,6 +28,47 @@
   --calm-soft: #1d1f26;
 }
 
+/*
+ * Second visage de l'application : **Healthier**, pour le volet nutrition.
+ *
+ * Le mode est posé sur `<html>` d'après la route (voir `ModeBridge`). Comme
+ * tous les composants n'utilisent que les variables ci-dessus, changer ce jeu
+ * repeint l'interface entière — c'est le bénéfice d'avoir tout passé par des
+ * tokens.
+ *
+ * Palette délibérément à l'opposé de Stronger : clair et frais là où la salle
+ * de sport est sombre et acide. Contrastes vérifiés, aucun couple encre/fond
+ * sous 4,5:1 sur les huit fonds.
+ */
+:root[data-mode="healthier"] {
+  color-scheme: light;
+
+  --bg: #f6f8f4;
+  --surface: #ffffff;
+  --surface2: #eef2ea;
+  --surface3: #e2e9dc;
+  --border: #e3e9de;
+  --border2: #cdd7c6;
+  --text: #16231b;
+  --muted: #5b6b5f;
+  --accent: #12734a;
+  --accent-fg: #ffffff;
+  --accent2: #ab3f26;
+  --pos: #12734a;
+  --neg: #ab3f26;
+  --accent-soft: #e2f3e6;
+  --pos-soft: #e4f4ea;
+  --neg-soft: #fdeceb;
+  --calm-soft: #eef1ec;
+}
+
+/* Le basculement d'un visage à l'autre ne doit pas clignoter. */
+body {
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);

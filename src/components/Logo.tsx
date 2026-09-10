@@ -49,3 +49,51 @@ export function Logo({ tile = "size-8" }: { tile?: string }) {
     </span>
   );
 }
+
+/**
+ * Marque de Healthier : une feuille.
+ *
+ * Pendant de l'haltère — un objet simple, reconnaissable au premier regard et
+ * lisible en très petit. Une assiette ou une pomme se confondraient avec des
+ * icônes d'application de recettes.
+ */
+export function LeafMark({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M20.5 3.2c-8 .2-13.4 3.4-14.9 8.6-.7 2.4-.2 4.7 1.1 6.5l-2.3 2.3a1.3 1.3 0 0 0 1.8 1.8l2.3-2.3c1.8 1.3 4.1 1.8 6.5 1.1 5.2-1.5 8.4-6.9 8.6-14.9a1.3 1.3 0 0 0-1.3-1.3z" />
+      <path
+        d="M8 19 L19.5 6"
+        stroke="var(--accent-fg)"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        fill="none"
+        opacity="0.55"
+      />
+    </svg>
+  );
+}
+
+/** Pastille et nom du visage demandé. */
+export function Brand({ mode = "stronger" }: { mode?: "stronger" | "healthier" }) {
+  const healthier = mode === "healthier";
+  return (
+    <span className="flex items-center gap-2">
+      <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-accent text-accent-fg">
+        {healthier ? (
+          <LeafMark className="size-[62%]" />
+        ) : (
+          <LogoMark className="size-[62%]" />
+        )}
+      </span>
+      <span className="font-display text-xl leading-none tracking-[0.02em]">
+        {healthier ? "Health" : "Strong"}
+        <span className="text-accent">{healthier ? "ier" : "er"}</span>
+      </span>
+    </span>
+  );
+}

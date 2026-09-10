@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import { ConvexClient } from "@/components/ConvexClient";
 import { SignInGate } from "@/components/SignInGate";
+import { ModeBridge } from "@/components/ModeBridge";
 import { SyncBridge } from "@/components/SyncBridge";
 import { TopBar } from "@/components/TopBar";
 import { APP_NAME, APP_TAGLINE } from "@/lib/app";
@@ -36,6 +37,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-bg text-text">
         <ConvexClient>
+          <ModeBridge />
           <SyncBridge />
           <SignInGate>
             <TopBar />
