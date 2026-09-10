@@ -1,0 +1,71 @@
+"use client";
+
+import { useState } from "react";
+import { EcranMensurations } from "@/components/SignInGate";
+import { profileStore, type Profile } from "@/lib/profile";
+
+/** Pastille de profil : mensurations modifiables et déconnexion. */
+export function ProfileMenu({ profil }: { profil: Profile }) {
+  const [edition, setEdition] = useState(false);
+  const [ouvert, setOuvert] = useState(false);
+
+  return (
+    <>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOuvert((v) => !v)}
+          title={profil.email || profil.name}
+          className="flex items-center gap-2 rounded-full border border-border bg-surface py-1 pr-3 pl-1 text-xs font-medium text-text transition hover:border-accent"
+        >
+          {profil.picture ? (
+            // eslint-disable-next-line @next/next/no-img-element -- avatar Google distant, hors domaine configuré
+            <img
+              src={profil.picture}
+              alt=""
+              width={24}
+              height={24}
+              className="size-6 rounded-full"
+            />
+          ) : (
+            <span className="font-display grid size-6 place-items-center rounded-full bg-accent text-sm text-bg">
+              {profil.name.slice(0, 1).toUpperCase()}
+            </span>
+          )}
+          {profil.name}
+        </button>
+
+        {ouvert ? (
+          <div className="absolute right-0 z-40 mt-1 w-52 overflow-hidden rounded-lg border border-border bg-surface py-1 text-sm shadow-xl">
+            <button
+              type="button"
+              onClick={() => {
+                setOuvert(false);
+                setEdition(true);
+              }}
+              className="block w-full px-3 py-2 text-left text-text transition hover:bg-bg"
+            >
+              Modifier mes mensurations
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOuvert(false);
+                profileStore.clear();
+              }}
+              className="block w-full px-3 py-2 text-left text-accent2 transition hover:bg-bg"
+            >
+              Se déconnecter
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {edition ? (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-bg/95">
+          <EcranMensurations profil={profil} onFini={() => setEdition(false)} />
+        </div>
+      ) : null}
+    </>
+  );
+}

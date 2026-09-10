@@ -1,26 +1,91 @@
 @import "tailwindcss";
 
+/*
+ * Thème sombre « salle de sport » : neutres légèrement bleutés plutôt que du
+ * noir pur, surfaces étagées pour donner du relief, et l'accent citron vert
+ * conservé — c'est l'identité de l'application.
+ *
+ * Les tons `*-soft` sont des fonds teintés destinés aux tuiles de synthèse :
+ * le fond porte le sens autant que la couleur du texte.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0e0f13;
+  --surface: #16181e;
+  --surface2: #1e2027;
+  --surface3: #272a33;
+  --border: #23262e;
+  --border2: #313640;
+  --text: #eceef2;
+  --muted: #98a0ad;
+  --accent: #d9fb4f;
+  --accent-fg: #0e0f13;
+  --accent2: #ff6b45;
+  --pos: #5fe0a0;
+  --neg: #ff7a6b;
+  --accent-soft: #232b13;
+  --pos-soft: #12251c;
+  --neg-soft: #2a1815;
+  --calm-soft: #1d1f26;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface2: var(--surface2);
+  --color-surface3: var(--surface3);
+  --color-border: var(--border);
+  --color-border2: var(--border2);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent2: var(--accent2);
+  --color-pos: var(--pos);
+  --color-neg: var(--neg);
+  --color-accent-soft: var(--accent-soft);
+  --color-pos-soft: var(--pos-soft);
+  --color-neg-soft: var(--neg-soft);
+  --color-calm-soft: var(--calm-soft);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-display: var(--font-bebas-neue);
+  --font-sans: var(--font-dm-sans);
+
+  /*
+   * Échelle de rayons redéfinie. Les composants utilisent surtout `rounded-md`
+   * et `rounded-lg` : les élargir ici adoucit toute l'interface d'un coup,
+   * plutôt qu'en modifiant trente-six endroits.
+   */
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-dm-sans), sans-serif;
+  min-height: 100vh;
+  /* Cases à cocher et curseurs natifs sur la couleur de l'application. */
+  accent-color: var(--accent);
+}
+
+/* Les chiffres s'alignent en colonne dans les tableaux de séance. */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-fade {
+  animation: fade 0.25s ease;
 }
