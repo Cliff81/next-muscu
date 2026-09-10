@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Assistant } from "@/components/Assistant";
+import { LogoTile } from "@/components/Logo";
 import { APP_NAME_PARTS, APP_TAGLINE } from "@/lib/app";
 import { onboardingStore } from "@/lib/onboarding";
 import { mountGoogleButton } from "@/lib/googleButton";
@@ -41,7 +42,8 @@ function SignInScreen() {
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-7">
-        <h1 className="font-display text-5xl leading-none tracking-[0.02em]">
+        <LogoTile className="size-12" />
+        <h1 className="font-display mt-4 text-5xl leading-none tracking-[0.02em]">
           {APP_NAME_PARTS[0]}
           <span className="text-accent">{APP_NAME_PARTS[1]}</span>
         </h1>

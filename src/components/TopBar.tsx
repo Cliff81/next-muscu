@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ProfileMenu } from "@/components/ProfileMenu";
-import { APP_NAME_PARTS } from "@/lib/app";
+import { Logo } from "@/components/Logo";
 import { profileStore } from "@/lib/profile";
 
 const LINKS = [
@@ -19,14 +19,8 @@ export function TopBar() {
   return (
     <header className="border-b border-border bg-surface">
       <div className="mx-auto flex w-full max-w-[900px] flex-wrap items-center gap-x-4 gap-y-2 px-8 py-3">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="font-display grid size-8 place-items-center rounded-xl bg-accent text-lg leading-none text-accent-fg">
-            S
-          </span>
-          <span className="font-display text-xl leading-none tracking-[0.02em]">
-            {APP_NAME_PARTS[0]}
-            <span className="text-accent">{APP_NAME_PARTS[1]}</span>
-          </span>
+        <Link href="/" aria-label="Stronger — accueil">
+          <Logo />
         </Link>
 
         <nav className="order-last flex w-full items-center justify-center gap-1 border-t border-border/70 pt-2 sm:order-none sm:mx-auto sm:w-auto sm:border-0 sm:pt-0">
