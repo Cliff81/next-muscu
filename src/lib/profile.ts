@@ -8,14 +8,35 @@ import { createLocalStore } from "@/lib/createLocalStore";
  * `poidsKg` est le **poids du corps** — à ne pas confondre avec la charge
  * soulevée par série (`set.weight`), que suit déjà l'historique.
  */
+export type Sexe = "homme" | "femme" | "autre";
+export type Experience = "debutant" | "intermediaire" | "avance";
+
 export type Profile = {
   sub: string;
   email: string;
   name: string;
   picture: string;
+  /** Tout ce qui suit est facultatif : l'étape d'informations est passable. */
   tailleCm: number | null;
   poidsKg: number | null;
+  age: number | null;
+  sexe: Sexe | null;
+  experience: Experience | null;
 };
+
+/** Profil vierge, rattaché à une identité. */
+export function profilVide(
+  base: Pick<Profile, "sub" | "email" | "name" | "picture">
+): Profile {
+  return {
+    ...base,
+    tailleCm: null,
+    poidsKg: null,
+    age: null,
+    sexe: null,
+    experience: null,
+  };
+}
 
 export const profileStore = createLocalStore<Profile | null>("muscu:profile", null);
 
@@ -78,14 +99,12 @@ export function profilDepuisJeton(jwt: string): Profile | { erreur: string } {
   if (!c.exp || c.exp * 1000 < Date.now()) return { erreur: "Jeton expiré." };
   if (!c.sub || !c.email) return { erreur: "Jeton incomplet." };
 
-  return {
+  return profilVide({
     sub: c.sub,
     email: c.email,
     name: c.name || c.email,
     picture: c.picture || "",
-    tailleCm: null,
-    poidsKg: null,
-  };
+  });
 }
 
 /** 178 → « 1m78 ». */

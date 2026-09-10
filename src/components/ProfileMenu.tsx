@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { EcranMensurations } from "@/components/SignInGate";
+import { assistantStore } from "@/lib/assistant";
 import { profileStore, type Profile } from "@/lib/profile";
 
 /** Pastille de profil : mensurations modifiables et déconnexion. */
 export function ProfileMenu({ profil }: { profil: Profile }) {
-  const [edition, setEdition] = useState(false);
   const [ouvert, setOuvert] = useState(false);
 
   return (
@@ -41,11 +40,13 @@ export function ProfileMenu({ profil }: { profil: Profile }) {
               type="button"
               onClick={() => {
                 setOuvert(false);
-                setEdition(true);
+                // Rejouer l'assistant permet de corriger ses informations et de
+                // reconstruire un programme, ou de passer au volet alimentation.
+                assistantStore.set(false);
               }}
               className="block w-full px-3 py-2 text-left text-text transition hover:bg-bg"
             >
-              Modifier mes mensurations
+              Relancer l&apos;assistant
             </button>
             <button
               type="button"
@@ -61,11 +62,6 @@ export function ProfileMenu({ profil }: { profil: Profile }) {
         ) : null}
       </div>
 
-      {edition ? (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-bg/95">
-          <EcranMensurations profil={profil} onFini={() => setEdition(false)} />
-        </div>
-      ) : null}
     </>
   );
 }
