@@ -120,10 +120,30 @@ export function forMuscle(
  * polyarticulaires d'abord — ils chargent le plus de masse musculaire — puis
  * l'isolation, et à niveau égal on privilégie les exercices accessibles.
  */
+export type SortOptions = {
+  /** Renforcement : la force d'abord. Endurance : la pliométrie a sa place. */
+  emphasis?: "strength" | "endurance";
+  /**
+   * Identifiants à placer en tête. Sert aux mouvements fondamentaux du poids
+   * du corps : le catalogue ne dit pas lesquels comptent, et l'ordre
+   * alphabétique faisait passer « Isometric Chest Squeezes » avant les pompes.
+   */
+  preferred?: ReadonlySet<string>;
+};
+
+/** Rang de catégorie : plus petit passe d'abord. */
+function categoryRank(category: Category | null, emphasis: "strength" | "endurance"): number {
+  if (category === "strength") return emphasis === "strength" ? 0 : 1;
+  if (category === "plyometrics" || category === "cardio") return emphasis === "strength" ? 1 : 0;
+  return 2;
+}
+
 export function sortForSession(
   list: CatalogExercise[],
-  level: Level
+  level: Level,
+  options: SortOptions = {}
 ): CatalogExercise[] {
+  const { emphasis = "strength", preferred } = options;
   const levelRank: Record<Level, number> = {
     beginner: 0,
     intermediate: 1,
@@ -133,8 +153,14 @@ export function sortForSession(
   return [...list]
     .filter((e) => (e.level ? levelRank[e.level] <= ceiling : true))
     .sort((a, b) => {
+      if (preferred) {
+        const rank = Number(preferred.has(b.id)) - Number(preferred.has(a.id));
+        if (rank !== 0) return rank;
+      }
       const compound = Number(b.mechanic === "compound") - Number(a.mechanic === "compound");
       if (compound !== 0) return compound;
+      const category = categoryRank(a.category, emphasis) - categoryRank(b.category, emphasis);
+      if (category !== 0) return category;
       const av = a.level ? levelRank[a.level] : 0;
       const bv = b.level ? levelRank[b.level] : 0;
       if (av !== bv) return av - bv;

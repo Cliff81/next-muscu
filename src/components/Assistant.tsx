@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { onboardingStore, FREQUENCIES, type Step } from "@/lib/onboarding";
 import { loadCatalog, type Level } from "@/lib/catalog";
-import { generateProgram, PROGRAM_TYPES, type ProgramType } from "@/lib/generateProgram";
+import { generateProgram, PROGRAM_TYPES, type Place, type ProgramType } from "@/lib/generateProgram";
+import { SUPPORTS, type Support } from "@/lib/homeTraining";
 import { computeNeeds, GOALS, type Needs, type Goal } from "@/lib/nutrition";
 import { profileStore, type Experience, type Profile, type Sex } from "@/lib/profile";
 import { programStore } from "@/lib/stores";
@@ -17,6 +18,8 @@ const LEVEL_FROM_EXPERIENCE: Record<Experience, Level> = {
 export function Assistant({ profile }: { profile: Profile }) {
   const [step, setStep] = useState<Step>("you");
   const [frequency, setFrequency] = useState(4);
+  const [place, setPlace] = useState<Place>("gym");
+  const [supports, setSupports] = useState<Support[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [needs, setNeeds] = useState<Needs | null>(null);
@@ -31,10 +34,10 @@ export function Assistant({ profile }: { profile: Profile }) {
       const level = profile.experience
         ? LEVEL_FROM_EXPERIENCE[profile.experience]
         : "intermediate";
-      programStore.set(generateProgram(catalog, { frequency, type, level }));
+      programStore.set(generateProgram(catalog, { frequency, type, level, place, supports }));
       finish();
     } catch {
-      setError("Le catalog d'exercices n'a pas pu être chargé.");
+      setError("Le catalogue d'exercices n'a pas pu être chargé.");
     } finally {
       setBusy(false);
     }
@@ -50,14 +53,24 @@ export function Assistant({ profile }: { profile: Profile }) {
         />
       ) : step === "goal" ? (
         <StepGoal
-          onSport={() => setStep("frequency")}
+          onSport={() => setStep("place")}
           onNutrition={() => setStep("nutrition")}
+        />
+      ) : step === "place" ? (
+        <StepPlace
+          place={place}
+          supports={supports}
+          onPlace={setPlace}
+          onSupports={setSupports}
+          onNext={() => setStep("frequency")}
+          onBack={() => setStep("goal")}
         />
       ) : step === "frequency" ? (
         <StepFrequency
           value={frequency}
           onChange={setFrequency}
           onNext={() => setStep("type")}
+          onBack={() => setStep("place")}
         />
       ) : step === "type" ? (
         <StepType
@@ -81,7 +94,7 @@ export function Assistant({ profile }: { profile: Profile }) {
   );
 }
 
-const ORDER: Step[] = ["you", "goal", "frequency", "type"];
+const ORDER: Step[] = ["you", "goal", "place", "frequency", "type"];
 
 function Frame({ step, children }: { step: Step; children: React.ReactNode }) {
   const index = ORDER.indexOf(step);
@@ -227,7 +240,7 @@ function StepYou({
 
   return (
     <>
-      <Heading eyebrow="Étape 1 sur 4">Parle-nous de toi</Heading>
+      <Heading eyebrow="Étape 1 sur 5">Parle-nous de toi</Heading>
       <p className="mt-3 text-sm text-muted">
         Tout est facultatif. Ces informations servent à calibrer le programme et à
         estimer tes besoins alimentaires — tu peux passer et les remplir plus tard.
@@ -342,7 +355,7 @@ function StepGoal({
 }) {
   return (
     <>
-      <Heading eyebrow="Étape 2 sur 4">Sur quoi veux-tu agir ?</Heading>
+      <Heading eyebrow="Étape 2 sur 5">Sur quoi veux-tu agir ?</Heading>
       <div className="mt-5 flex flex-col gap-2">
         <OptionCard
           title="Programme sportif"
@@ -362,21 +375,100 @@ function StepGoal({
   );
 }
 
-/* ---------------------------------------------------------------- étape 3 */
+/* ---------------------------------------------------------------- étape 4 */
+
+/**
+ * Où l'on s'entraîne, et avec quoi.
+ *
+ * La question du mobilier n'est pas cosmétique : le catalogue classe un
+ * « Bench Dips » en poids du corps sans dire qu'il demande une chaise, et un
+ * « Pullups » sans dire qu'il demande une barre. Sans ces réponses on
+ * proposerait des tractions à quelqu'un qui n'a qu'un tapis.
+ */
+function StepPlace({
+  place,
+  supports,
+  onPlace,
+  onSupports,
+  onNext,
+  onBack,
+}: {
+  place: Place;
+  supports: Support[];
+  onPlace: (p: Place) => void;
+  onSupports: (s: Support[]) => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  const toggle = (id: Support) =>
+    onSupports(supports.includes(id) ? supports.filter((s) => s !== id) : [...supports, id]);
+
+  return (
+    <>
+      <Heading eyebrow="Étape 3 sur 5">Où t&apos;entraînes-tu ?</Heading>
+      <p className="mt-3 text-sm text-muted">
+        Le programme est construit avec ce dont tu disposes vraiment.
+      </p>
+
+      <div className="mt-5 flex flex-col gap-2">
+        <OptionCard
+          title="En salle"
+          summary="Barre, haltères, poulies et machines"
+          active={place === "gym"}
+          onClick={() => onPlace("gym")}
+        />
+        <OptionCard
+          title="À la maison, au poids du corps"
+          summary="Sans matériel, ou avec ce qui traîne chez toi"
+          active={place === "home"}
+          onClick={() => onPlace("home")}
+        />
+      </div>
+
+      {place === "home" && (
+        <div className="mt-5">
+          <FieldGroup label="De quoi disposes-tu ?">
+            <div className="flex flex-col gap-2">
+              {SUPPORTS.map((s) => (
+                <OptionCard
+                  key={s.id}
+                  title={s.name}
+                  summary={s.summary}
+                  active={supports.includes(s.id)}
+                  onClick={() => toggle(s.id)}
+                />
+              ))}
+            </div>
+          </FieldGroup>
+          <p className="mt-2 text-[0.78rem] text-muted">
+            {supports.includes("bar")
+              ? "Avec une barre ou une table, le programme est complet."
+              : "Sans barre de traction ni table solide, aucun mouvement de tirage n'est possible au poids du corps : le dos restera de côté. C'est le seul manque réel."}
+          </p>
+        </div>
+      )}
+
+      <PrimaryButton onClick={onNext}>Continuer</PrimaryButton>
+      <LinkButton onClick={onBack}>Revenir en arrière</LinkButton>
+    </>
+  );
+}
 
 function StepFrequency({
   value,
   onChange,
   onNext,
+  onBack,
 }: {
   value: number;
   onChange: (v: number) => void;
   onNext: () => void;
+  onBack: () => void;
 }) {
   const selected = FREQUENCIES.find((f) => f.days === value);
   return (
     <>
-      <Heading eyebrow="Étape 3 sur 4">Combien de séances par semaine ?</Heading>
+      <Heading eyebrow="Étape 4 sur 5">Combien de séances par semaine ?</Heading>
       <p className="mt-3 text-sm text-muted">
         Plus de séances, c&apos;est plus de volume d&apos;entraînement, donc des
         progrès plus rapides. Jusqu&apos;à un point : au-delà de cinq jours, c&apos;est
@@ -404,11 +496,12 @@ function StepFrequency({
         </p>
       ) : null}
       <PrimaryButton onClick={onNext}>Continuer</PrimaryButton>
+      <LinkButton onClick={onBack}>Revenir en arrière</LinkButton>
     </>
   );
 }
 
-/* ---------------------------------------------------------------- étape 4 */
+/* ---------------------------------------------------------------- étape 5 */
 
 function StepType({
   frequency,
@@ -428,7 +521,7 @@ function StepType({
 
   return (
     <>
-      <Heading eyebrow="Étape 4 sur 4">Quel type de programme ?</Heading>
+      <Heading eyebrow="Étape 5 sur 5">Quel type de programme ?</Heading>
       <p className="mt-3 text-sm text-muted">
         Adaptés à {frequency} séance{frequency > 1 ? "s" : ""} par semaine :
       </p>

@@ -18,6 +18,7 @@ import {
   type Level,
 } from "@/lib/catalog";
 import { MUSCLE_LABELS, EQUIPMENT_LABELS } from "@/lib/catalog";
+import { HOME_FUNDAMENTALS, availableAtHome, homeEquipment, type Support } from "@/lib/homeTraining";
 import type { Day, Exercise, Program, Section } from "@/lib/types";
 
 export type ProgramType = "fullbody" | "upperlower" | "ppl" | "split" | "endurance";
@@ -155,6 +156,92 @@ const ROTATIONS: Record<ProgramType, DayTemplate[]> = {
   ],
 };
 
+/*
+ * Modèles pour la maison. Ils ne reprennent pas ceux de la salle : au poids du
+ * corps le catalogue n'a aucun exercice de biceps, de mollets ni d'avant-bras,
+ * et un seul pour le milieu du dos. Des sections « Bras » ou « Mollets »
+ * resteraient vides. On construit donc sur ce qui existe vraiment —
+ * pousser, tirer, jambes, gainage — et le gainage prend la place que les bras
+ * occupent en salle.
+ */
+const HOME_PUSH: SectionTemplate[] = [
+  { title: "Pectoraux", muscles: ["chest"], count: 3 },
+  { title: "Triceps", muscles: ["triceps"], count: 2 },
+  { title: "Épaules", muscles: ["shoulders"], count: 1 },
+];
+
+const HOME_PULL: SectionTemplate[] = [
+  { title: "Dos", muscles: ["lats", "middle back"], count: 3 },
+  { title: "Gainage", muscles: ["abdominals"], count: 2 },
+];
+
+const HOME_LEGS: SectionTemplate[] = [
+  { title: "Quadriceps", muscles: ["quadriceps"], count: 3 },
+  { title: "Ischios & fessiers", muscles: ["hamstrings", "glutes"], count: 2 },
+  { title: "Gainage", muscles: ["abdominals"], count: 1 },
+];
+
+const HOME_UPPER: SectionTemplate[] = [
+  { title: "Pectoraux", muscles: ["chest"], count: 3 },
+  { title: "Dos", muscles: ["lats", "middle back"], count: 2 },
+  { title: "Triceps", muscles: ["triceps"], count: 2 },
+  { title: "Épaules", muscles: ["shoulders"], count: 1 },
+];
+
+const HOME_FULL: SectionTemplate[] = [
+  { title: "Jambes", muscles: ["quadriceps", "hamstrings", "glutes"], count: 3 },
+  { title: "Pectoraux", muscles: ["chest"], count: 2 },
+  { title: "Dos", muscles: ["lats", "middle back"], count: 1 },
+  { title: "Triceps", muscles: ["triceps"], count: 1 },
+  { title: "Gainage", muscles: ["abdominals"], count: 2 },
+];
+
+const HOME_CORE: SectionTemplate[] = [
+  { title: "Gainage", muscles: ["abdominals"], count: 4 },
+  { title: "Fessiers", muscles: ["glutes"], count: 2 },
+];
+
+const HOME_ROTATIONS: Record<ProgramType, DayTemplate[]> = {
+  fullbody: [
+    { title: "Corps entier A", description: "Pousser, tirer, jambes, gainage", sections: HOME_FULL },
+    { title: "Corps entier B", description: "Autres variantes du même schéma", sections: HOME_FULL },
+    { title: "Corps entier C", description: "Troisième variation", sections: HOME_FULL },
+    { title: "Corps entier D", description: "Dernière variation", sections: HOME_FULL },
+  ],
+  upperlower: [
+    { title: "Haut du corps A", description: "Poussée et tirage au poids du corps", sections: HOME_UPPER },
+    { title: "Bas du corps A", description: "Quadriceps, ischios, fessiers", sections: HOME_LEGS },
+    { title: "Haut du corps B", description: "Autres angles de poussée", sections: HOME_UPPER },
+    { title: "Bas du corps B", description: "Unilatéral et pliométrie", sections: HOME_LEGS },
+    { title: "Haut du corps C", description: "Volume complémentaire", sections: HOME_UPPER },
+    { title: "Bas du corps C", description: "Volume complémentaire", sections: HOME_LEGS },
+  ],
+  ppl: [
+    { title: "Poussée", description: "Pectoraux, triceps, épaules", sections: HOME_PUSH },
+    { title: "Tirage", description: "Dos et gainage", sections: HOME_PULL },
+    { title: "Jambes", description: "Quadriceps, ischios, fessiers", sections: HOME_LEGS },
+    { title: "Poussée B", description: "Autres angles de pompes", sections: HOME_PUSH },
+    { title: "Tirage B", description: "Autres prises de tirage", sections: HOME_PULL },
+    { title: "Jambes B", description: "Unilatéral et pliométrie", sections: HOME_LEGS },
+  ],
+  split: [
+    { title: "Poussée", description: "Pectoraux, triceps, épaules", sections: HOME_PUSH },
+    { title: "Tirage", description: "Dos et gainage", sections: HOME_PULL },
+    { title: "Jambes", description: "Quadriceps, ischios, fessiers", sections: HOME_LEGS },
+    { title: "Gainage & fessiers", description: "Ceinture abdominale et chaîne postérieure", sections: HOME_CORE },
+    { title: "Corps entier", description: "Rattrapage sur les points faibles", sections: HOME_FULL },
+    { title: "Poussée B", description: "Volume complémentaire", sections: HOME_PUSH },
+  ],
+  endurance: [
+    { title: "Circuit corps entier A", description: "Séries longues, repos courts", sections: HOME_FULL },
+    { title: "Circuit haut du corps", description: "Poussée et tirage en circuit", sections: HOME_UPPER },
+    { title: "Circuit jambes", description: "Pliométrie et unilatéral", sections: HOME_LEGS },
+    { title: "Circuit corps entier B", description: "Autres mouvements", sections: HOME_FULL },
+    { title: "Circuit gainage", description: "Ceinture abdominale", sections: HOME_CORE },
+    { title: "Circuit haut du corps B", description: "Volume complémentaire", sections: HOME_UPPER },
+  ],
+};
+
 const WEEKDAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
 /**
@@ -173,10 +260,23 @@ export const GYM_EQUIPMENT: Equipment[] = [
 /** Catégories écartées : elles ne construisent pas une séance de renforcement. */
 const EXCLUDED_CATEGORIES = new Set(["stretching", "olympic weightlifting", "strongman"]);
 
+/**
+ * Le cardio est écarté des programmes de force, où il n'a rien à faire : sans
+ * cela « Trail Running/Walking » atterrissait dans une section quadriceps. En
+ * endurance il est au contraire à sa place.
+ */
+const STRENGTH_EXCLUDED = new Set([...EXCLUDED_CATEGORIES, "cardio"]);
+
+export type Place = "gym" | "home";
+
 export type Answers = {
   frequency: number;
   type: ProgramType;
   level: Level;
+  /** En salle par défaut : c'est le cas d'origine. */
+  place?: Place;
+  /** Mobilier et matériel disponibles à la maison. */
+  supports?: Support[];
 };
 
 export function setsAndReps(
@@ -198,11 +298,20 @@ export function setsAndReps(
  */
 export function catalogDetails(e: CatalogExercise): Pick<Exercise, "sub" | "tip"> {
   const compound = e.mechanic === "compound";
+  // Le catalogue laisse le matériel à `null` pour une partie des mouvements au
+  // poids du corps et le note « body only » pour les autres : les deux disent
+  // la même chose à qui lit la fiche.
+  const bodyweight = e.equipment === null || e.equipment === "body only";
   return {
-    sub: [e.equipment ? EQUIPMENT_LABELS[e.equipment] : null, compound ? "polyarticulaire" : "isolation"]
-      .filter(Boolean)
+    sub: [bodyweight ? "Poids du corps" : EQUIPMENT_LABELS[e.equipment!], compound ? "polyarticulaire" : "isolation"]
       .join(" · "),
-    tip: compound ? "Charge la plus lourde de la séance : soigne l'échauffement" : undefined,
+    // Parler de « charge » sans charge n'a pas de sens : à la maison c'est
+    // l'exigence du mouvement qui tient ce rôle.
+    tip: compound
+      ? bodyweight
+        ? "Mouvement le plus exigeant de la séance : soigne l'échauffement"
+        : "Charge la plus lourde de la séance : soigne l'échauffement"
+      : undefined,
   };
 }
 
@@ -211,23 +320,33 @@ export function catalogDetails(e: CatalogExercise): Pick<Exercise, "sub" | "tip"
  * étirements ni haltérophilie. Le sélecteur applique le même tamis que le
  * générateur, pour ne pas proposer à la main ce qu'il a écarté.
  */
-export function usableExercises(catalog: CatalogExercise[]): CatalogExercise[] {
-  return catalog.filter(
-    (e) =>
-      (e.equipment === null || GYM_EQUIPMENT.includes(e.equipment)) &&
-      !(e.category && EXCLUDED_CATEGORIES.has(e.category))
-  );
+export function usableExercises(
+  catalog: CatalogExercise[],
+  place: Place = "gym",
+  supports: Support[] = [],
+  emphasis: "strength" | "endurance" = "strength"
+): CatalogExercise[] {
+  const equipment = place === "home" ? homeEquipment(supports) : GYM_EQUIPMENT;
+  const excluded = emphasis === "endurance" ? EXCLUDED_CATEGORIES : STRENGTH_EXCLUDED;
+  return catalog.filter((e) => {
+    if (e.category && excluded.has(e.category)) return false;
+    if (e.equipment !== null && !equipment.includes(e.equipment)) return false;
+    // À la maison, un mouvement peut demander un meuble que le catalogue
+    // n'exprime pas : pas de tractions sans barre, pas de dips sans chaise.
+    return place === "home" ? availableAtHome(e, supports) : true;
+  });
 }
 
 export function generateProgram(
   catalog: CatalogExercise[],
   answers: Answers
 ): Program {
-  const { frequency, type, level } = answers;
-  const rotation = ROTATIONS[type];
+  const { frequency, type, level, place = "gym", supports = [] } = answers;
+  const rotation = place === "home" ? HOME_ROTATIONS[type] : ROTATIONS[type];
   const used = new Set<string>();
 
-  const usable = usableExercises(catalog);
+  const emphasis = type === "endurance" ? ("endurance" as const) : ("strength" as const);
+  const usable = usableExercises(catalog, place, supports, emphasis);
 
   /**
    * Combien de mouvements polyarticulaires dans une section de `count`
@@ -241,10 +360,18 @@ export function generateProgram(
     return 2;
   };
 
+  const sortOptions = {
+    emphasis,
+    // À la maison seulement : en salle, la profondeur du catalogue suffit et
+    // une liste de préférences y serait arbitraire.
+    preferred: place === "home" ? HOME_FUNDAMENTALS : undefined,
+  };
+
   const pick = (muscles: Muscle[], count: number): CatalogExercise[] => {
     const candidates = sortForSession(
       usable.filter((e) => muscles.some((m) => e.muscles.includes(m))),
-      level
+      level,
+      sortOptions
     );
     const poly = candidates.filter((e) => e.mechanic === "compound");
     const isolation = candidates.filter((e) => e.mechanic !== "compound");
@@ -275,13 +402,21 @@ export function generateProgram(
   };
 
   const days: Day[] = [];
+  /** Sections qu'aucun exercice disponible ne permet de remplir. */
+  const unreachable = new Set<string>();
   for (let i = 0; i < frequency; i++) {
     const template = rotation[i % rotation.length];
     const sections: Section[] = [];
 
     for (const ms of template.sections) {
       const exercises = pick(ms.muscles, ms.count);
-      if (!exercises.length) continue;
+      if (!exercises.length) {
+        // Une section vide n'est pas un détail : à la maison, sans barre ni
+        // table, il n'existe aucun mouvement de tirage. On le retient pour le
+        // dire, plutôt que de faire disparaître la section en silence.
+        unreachable.add(ms.title);
+        continue;
+      }
       sections.push({
         title: ms.title,
         muscles: ms.muscles,
@@ -297,6 +432,31 @@ export function generateProgram(
           };
         }),
       });
+    }
+
+    /*
+     * Une séance descendue à deux exercices n'en est plus une : c'est ce que
+     * donnait la journée de tirage sans barre de traction. Plutôt que de la
+     * laisser creuse, on la complète avec ce que le matériel permet — gainage,
+     * fessiers, jambes — en le disant dans le titre de la section.
+     */
+    const compte = () => sections.reduce((n, s) => n + s.exercises.length, 0);
+    if (compte() < 4) {
+      const complement = pick(["abdominals", "glutes", "quadriceps"], 4 - compte());
+      if (complement.length) {
+        sections.push({
+          title: "Complément",
+          muscles: ["abdominals", "glutes", "quadriceps"],
+          exercises: complement.map((e, j): Exercise => ({
+            id: `j${i + 1}-complement-${j + 1}`,
+            name: e.name,
+            catalogId: e.id,
+            images: e.images,
+            ...catalogDetails(e),
+            ...setsAndReps(type, e.mechanic === "compound"),
+          })),
+        });
+      }
     }
 
     const muscleTags = [
@@ -319,16 +479,55 @@ export function generateProgram(
         "Commence par deux séries légères sur le premier exercice",
         type === "endurance"
           ? "Enchaîne les exercices d'une section en circuit si le temps presse"
-          : "Ajoute du poids dès que tu tiens le haut de la fourchette de répétitions",
-        "Note tes charges à chaque séance : c'est la progression qui compte",
+          : place === "home"
+            ? "Ralentis la descente et marque une pause en bas : c'est ainsi qu'on progresse sans charge"
+            : "Ajoute du poids dès que tu tiens le haut de la fourchette de répétitions",
+        place === "home"
+          ? "Note tes répétitions à chaque séance : c'est la progression qui compte"
+          : "Note tes charges à chaque séance : c'est la progression qui compte",
       ],
     });
   }
 
   const typeName = PROGRAM_TYPES.find((t) => t.id === type)?.name ?? type;
 
+  // Répétitions inévitables : au poids du corps sans matériel, le catalogue ne
+  // propose pas de quoi remplir cinq journées distinctes. Mieux vaut l'annoncer
+  // que laisser croire à une négligence du générateur.
+  const noms = days.flatMap((d) => d.sections.flatMap((s) => s.exercises.map((e) => e.name)));
+  const repetes = noms.length - new Set(noms).size;
+  if (repetes > 0 && days.length) {
+    days[0] = {
+      ...days[0],
+      tips: [
+        ...days[0].tips,
+        `${repetes} mouvement${repetes > 1 ? "s reviennent" : " revient"} sur plusieurs journées : le matériel déclaré n'en permet pas davantage. Fais varier la vitesse de descente et l'amplitude plutôt que l'exercice.`,
+      ],
+    };
+  }
+
+  // Ce qui manque est dit une fois, sur la première journée : le répéter sur
+  // chacune serait du bruit.
+  if (unreachable.size && days.length) {
+    const manquant = [...unreachable].join(", ").toLowerCase();
+    days[0] = {
+      ...days[0],
+      tips: [
+        ...days[0].tips,
+        unreachable.has("Dos")
+          ? `Pas de ${manquant} dans ce programme : au poids du corps, le tirage demande une barre de traction ou une table solide. C'est le seul manque réel de l'entraînement à la maison — indique-la dans l'assistant si tu en as une.`
+          : `Pas de ${manquant} dans ce programme : le matériel déclaré ne permet aucun mouvement pour ces muscles.`,
+      ],
+    };
+  }
+
   return {
-    tag: type === "endurance" ? "Endurance — condition physique" : "Renforcement — hypertrophie",
+    tag:
+      place === "home"
+        ? "Poids du corps — à la maison"
+        : type === "endurance"
+          ? "Endurance — condition physique"
+          : "Renforcement — hypertrophie",
     title: typeName,
     titleAccent: `${frequency} jour${frequency > 1 ? "s" : ""}`,
     subtitle: `Programme généré · ${frequency} séance${frequency > 1 ? "s" : ""} par semaine`,
