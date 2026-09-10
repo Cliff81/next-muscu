@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { ActivityEditor } from "@/components/ActivityEditor";
 import { NutritionSection } from "@/components/NutritionSection";
 import { NEAT_LEVELS, hoursLabel, programMinutes } from "@/lib/activities";
-import { computeNeeds, GOALS, type Goal } from "@/lib/nutrition";
+import { computeNeeds, GOALS } from "@/lib/nutrition";
 import { nutritionAdvice } from "@/lib/nutritionAdvice";
 import { profileStore } from "@/lib/profile";
-import { activitiesStore, neatStore } from "@/lib/stores";
+import { activitiesStore, goalStore, neatStore } from "@/lib/stores";
 import { useProgram } from "@/lib/useProgram";
 
 /**
@@ -19,7 +18,7 @@ export default function NutritionPage() {
   const activities = activitiesStore.useValue();
   const neat = neatStore.useValue();
   const { program } = useProgram();
-  const [goal, setGoal] = useState<Goal>("masse");
+  const goal = goalStore.useValue();
 
   const sessions = program.days.length || 4;
   const minutes = programMinutes(program.days.map((d) => d.restInfo.duration));
@@ -57,7 +56,7 @@ export default function NutritionPage() {
             <button
               key={g.id}
               type="button"
-              onClick={() => setGoal(g.id)}
+              onClick={() => goalStore.set(g.id)}
               title={g.summary}
               className={`rounded-full border px-3.5 py-1.5 text-sm transition ${
                 goal === g.id

@@ -7,7 +7,7 @@ import { generateProgram, PROGRAM_TYPES, type Place, type ProgramType } from "@/
 import { SUPPORTS, type Support } from "@/lib/homeTraining";
 import { computeNeeds, GOALS, type Needs, type Goal } from "@/lib/nutrition";
 import { profileStore, type Experience, type Profile, type Sex } from "@/lib/profile";
-import { programStore } from "@/lib/stores";
+import { goalStore, programStore } from "@/lib/stores";
 
 const LEVEL_FROM_EXPERIENCE: Record<Experience, Level> = {
   debutant: "beginner",
@@ -567,7 +567,8 @@ function StepNutrition({
   onDone: () => void;
   onBack: () => void;
 }) {
-  const [goal, setGoal] = useState<Goal>("masse");
+  // Même magasin que l'onglet Nutrition : le choix fait ici s'y retrouve.
+  const goal = goalStore.useValue();
   const [sessions, setSessions] = useState(4);
 
   return (
@@ -586,7 +587,7 @@ function StepNutrition({
             title={o.name}
             summary={o.summary}
             active={goal === o.id}
-            onClick={() => setGoal(o.id)}
+            onClick={() => goalStore.set(o.id)}
           />
         ))}
       </div>

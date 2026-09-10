@@ -32,6 +32,7 @@ const MEASUREMENTS = {
   ),
   activities: v.optional(v.any()),
   neat: v.optional(v.string()),
+  goal: v.optional(v.string()),
 };
 
 /**

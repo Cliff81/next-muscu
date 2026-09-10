@@ -10,8 +10,9 @@ import { parseHistory } from "@/lib/historySchema";
 import { mergeWorkouts } from "@/lib/mergeWorkouts";
 import type { Activity, NeatLevel } from "@/lib/activities";
 import { NEAT_LEVELS } from "@/lib/activities";
+import { GOALS, type Goal } from "@/lib/nutrition";
 import { repairStrings } from "@/lib/repairProgram";
-import { activitiesStore, historyStore, neatStore, programStore } from "@/lib/stores";
+import { activitiesStore, goalStore, historyStore, neatStore, programStore } from "@/lib/stores";
 import type { Program, SessionLog } from "@/lib/types";
 
 /**
@@ -42,6 +43,7 @@ export function useSync(): void {
   const localProfile = profileStore.useValue();
   const localActivities = activitiesStore.useValue();
   const localNeat = neatStore.useValue();
+  const localGoal = goalStore.useValue();
   const localHistory = historyStore.useValue();
 
   // --- descente : le distant est plus récent que ce qu'on a déjà vu
@@ -77,6 +79,9 @@ export function useSync(): void {
     }
     if (NEAT_LEVELS.some((l) => l.id === remoteProfile.neat)) {
       neatStore.set(remoteProfile.neat as NeatLevel);
+    }
+    if (GOALS.some((g) => g.id === remoteProfile.goal)) {
+      goalStore.set(remoteProfile.goal as Goal);
     }
   }, [isAuthenticated, remoteProfile]);
 
@@ -115,6 +120,7 @@ export function useSync(): void {
       remoteProfile.sex === localProfile.sex &&
       remoteProfile.experience === localProfile.experience &&
       remoteProfile.neat === localNeat &&
+      remoteProfile.goal === localGoal &&
       JSON.stringify(remoteProfile.activities ?? []) === JSON.stringify(localActivities);
     if (memes) return;
     void saveProfile({
@@ -125,8 +131,9 @@ export function useSync(): void {
       experience: localProfile.experience,
       activities: localActivities,
       neat: localNeat,
+      goal: localGoal,
     }).catch(() => {
       // Hors ligne : sans effet, on retentera.
     });
-  }, [isAuthenticated, localActivities, localNeat, localProfile, remoteProfile, saveProfile]);
+  }, [isAuthenticated, localActivities, localGoal, localNeat, localProfile, remoteProfile, saveProfile]);
 }
