@@ -30,6 +30,8 @@ const MEASUREMENTS = {
     v.literal("avance"),
     v.null()
   ),
+  activities: v.optional(v.any()),
+  neat: v.optional(v.string()),
 };
 
 /**

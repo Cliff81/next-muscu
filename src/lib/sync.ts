@@ -5,8 +5,11 @@ import { useEffect } from "react";
 import { api } from "../../convex/_generated/api";
 import { createLocalStore } from "@/lib/createLocalStore";
 import { profileStore } from "@/lib/profile";
+import { activitiesSchema } from "@/lib/activitiesSchema";
+import type { Activity, NeatLevel } from "@/lib/activities";
+import { NEAT_LEVELS } from "@/lib/activities";
 import { repairStrings } from "@/lib/repairProgram";
-import { programStore } from "@/lib/stores";
+import { activitiesStore, neatStore, programStore } from "@/lib/stores";
 import type { Program } from "@/lib/types";
 
 /**
@@ -33,6 +36,8 @@ export function useSync(): void {
 
   const localProgram = programStore.useValue();
   const localProfile = profileStore.useValue();
+  const localActivities = activitiesStore.useValue();
+  const localNeat = neatStore.useValue();
 
   // --- descente : le distant est plus récent que ce qu'on a déjà vu
   useEffect(() => {
@@ -55,6 +60,21 @@ export function useSync(): void {
       });
   }, [isAuthenticated, localProgram, remoteProgram, saveProgram]);
 
+  // --- descente des sports : uniquement si rien n'a encore été saisi ici.
+  // Sans cette réserve, une saisie faite hors ligne serait écrasée au retour
+  // du réseau par la version d'un autre appareil.
+  useEffect(() => {
+    if (!isAuthenticated || !remoteProfile) return;
+    if (activitiesStore.get().length > 0) return;
+    const parsed = activitiesSchema.safeParse(remoteProfile.activities ?? []);
+    if (parsed.success && parsed.data.length) {
+      activitiesStore.set(parsed.data as Activity[]);
+    }
+    if (NEAT_LEVELS.some((l) => l.id === remoteProfile.neat)) {
+      neatStore.set(remoteProfile.neat as NeatLevel);
+    }
+  }, [isAuthenticated, remoteProfile]);
+
   // --- remontée du profil : les mensurations, le reste vient du jeton
   useEffect(() => {
     if (!isAuthenticated || !localProfile || remoteProfile === undefined) return;
@@ -64,7 +84,9 @@ export function useSync(): void {
       remoteProfile.weightKg === localProfile.weightKg &&
       remoteProfile.age === localProfile.age &&
       remoteProfile.sex === localProfile.sex &&
-      remoteProfile.experience === localProfile.experience;
+      remoteProfile.experience === localProfile.experience &&
+      remoteProfile.neat === localNeat &&
+      JSON.stringify(remoteProfile.activities ?? []) === JSON.stringify(localActivities);
     if (memes) return;
     void saveProfile({
       heightCm: localProfile.heightCm,
@@ -72,8 +94,10 @@ export function useSync(): void {
       age: localProfile.age,
       sex: localProfile.sex,
       experience: localProfile.experience,
+      activities: localActivities,
+      neat: localNeat,
     }).catch(() => {
       // Hors ligne : sans effet, on retentera.
     });
-  }, [isAuthenticated, localProfile, remoteProfile, saveProfile]);
+  }, [isAuthenticated, localActivities, localNeat, localProfile, remoteProfile, saveProfile]);
 }

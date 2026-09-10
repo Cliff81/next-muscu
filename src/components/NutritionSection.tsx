@@ -1,6 +1,10 @@
 import type { NutritionCard } from "@/lib/types";
 
 export function NutritionSection({ cards }: { cards: NutritionCard[] }) {
+  // Sans carte, pas de titre orphelin : c'est ce que donnait un programme
+  // généré, dont la liste de conseils est vide.
+  if (!cards.length) return null;
+
   return (
     <div className="mx-auto mt-12 w-full max-w-[900px] px-8 pb-16">
       <h3 className="font-display mb-4 text-3xl text-accent2">Nutrition &amp; Récupération</h3>

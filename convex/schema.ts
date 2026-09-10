@@ -32,6 +32,14 @@ export default defineSchema({
       v.null()
     ),
     onboardingDone: v.boolean(),
+    /*
+     * Sports déclarés et niveau de vie courante. Facultatifs : les profils
+     * enregistrés avant leur arrivée doivent rester valides. `activities` est
+     * en `v.any()` comme `program`, sa forme étant décrite côté client par
+     * `activitiesSchema`.
+     */
+    activities: v.optional(v.any()),
+    neat: v.optional(v.string()),
   }).index("by_subject", ["subject"]),
 
   programs: defineTable({

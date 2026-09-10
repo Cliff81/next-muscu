@@ -71,7 +71,7 @@ export function Assistant({ profile }: { profile: Profile }) {
         <StepNutrition
           needs={needs}
           onCompute={(goal, sessions) =>
-            setNeeds(computeNeeds(profile, goal, sessions))
+            setNeeds(computeNeeds(profile, goal, { sessionsPerWeek: sessions, minutesPerSession: 60 }))
           }
           onDone={finish}
           onBack={() => setStep("goal")}

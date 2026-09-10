@@ -1,26 +1,40 @@
 "use client";
 
-import { NutritionSection } from "@/components/NutritionSection";
-import { computeNeeds, GOALS, type Goal } from "@/lib/nutrition";
-import { profileStore } from "@/lib/profile";
-import { useProgram } from "@/lib/useProgram";
 import { useState } from "react";
+import { ActivityEditor } from "@/components/ActivityEditor";
+import { NutritionSection } from "@/components/NutritionSection";
+import { NEAT_LEVELS, hoursLabel, programMinutes } from "@/lib/activities";
+import { computeNeeds, GOALS, type Goal } from "@/lib/nutrition";
+import { nutritionAdvice } from "@/lib/nutritionAdvice";
+import { profileStore } from "@/lib/profile";
+import { activitiesStore, neatStore } from "@/lib/stores";
+import { useProgram } from "@/lib/useProgram";
 
 /**
- * Volet Healthier : les besoins estimés d'après le profil, puis les conseils
- * du programme.
+ * Volet Healthier : les besoins estimés, la dépense détaillée poste par poste,
+ * les sports déclarés, puis les conseils qui en découlent.
  */
 export default function NutritionPage() {
   const profile = profileStore.useValue();
+  const activities = activitiesStore.useValue();
+  const neat = neatStore.useValue();
   const { program } = useProgram();
   const [goal, setGoal] = useState<Goal>("masse");
 
   const sessions = program.days.length || 4;
+  const minutes = programMinutes(program.days.map((d) => d.restInfo.duration));
   // Chaîne construite en JS et non en JSX : les règles d'espacement de JSX
   // autour d'une expression coupée en fin de ligne mangeaient l'espace avant
   // « par », ce qui donnait « 5 séancespar semaine ».
-  const rhythm = `${sessions} séance${sessions > 1 ? "s" : ""} par semaine`;
-  const needs = profile ? computeNeeds(profile, goal, sessions) : null;
+  const rhythm = `${sessions} séance${sessions > 1 ? "s" : ""} de ${minutes} min par semaine`;
+
+  const needs = profile
+    ? computeNeeds(profile, goal, { sessionsPerWeek: sessions, minutesPerSession: minutes }, activities, neat)
+    : null;
+  const sportMinutes = activities.reduce(
+    (sum, a) => sum + a.sessionsPerWeek * a.minutesPerSession,
+    0
+  );
 
   return (
     <>
@@ -37,7 +51,7 @@ export default function NutritionPage() {
         </p>
       </header>
 
-      <div className="mx-auto w-full max-w-[900px] px-8 pb-8">
+      <div className="mx-auto w-full max-w-[900px] px-8 pb-16">
         <div className="flex flex-wrap gap-1.5">
           {GOALS.map((g) => (
             <button
@@ -56,7 +70,11 @@ export default function NutritionPage() {
           ))}
         </div>
 
-        {!needs ? null : "missing" in needs ? (
+        {!profile ? (
+          <p className="mt-5 rounded-2xl bg-surface2 px-4 py-3 text-sm text-muted">
+            Connecte-toi pour retrouver ton profil et calculer tes besoins.
+          </p>
+        ) : !needs ? null : "missing" in needs ? (
           <p className="mt-5 rounded-2xl bg-surface2 px-4 py-3 text-sm text-muted">
             Il manque {needs.missing.join(", ")} pour ce calcul. Renseigne-les en
             relançant l&apos;assistant depuis ton profil.
@@ -69,18 +87,79 @@ export default function NutritionPage() {
               <Tile value={needs.carbs} unit="g" label="Glucides" />
               <Tile value={needs.fat} unit="g" label="Lipides" />
             </div>
-            <p className="mt-3 text-xs text-muted">
-              Métabolisme de base {needs.bmr} kcal · dépense estimée {needs.tdee} kcal
-              {needs.sexApproximated
-                ? " · sexe non renseigné : valeur intermédiaire entre les deux formules"
-                : ""}
-            </p>
+
+            <div className="mt-6 rounded-2xl border border-border bg-surface p-4">
+              <h2 className="font-display text-xl text-accent2">Dépense estimée</h2>
+              <ul className="mt-3 flex flex-col gap-1.5 text-sm">
+                <Line label="Vie courante, hors sport" value={needs.base} />
+                <Line
+                  label={`Renforcement · ${sessions} × ${minutes} min`}
+                  value={needs.programBurn}
+                />
+                <Line
+                  label={
+                    sportMinutes > 0
+                      ? `Autres sports · ${hoursLabel(sportMinutes)}/sem`
+                      : "Autres sports · aucun déclaré"
+                  }
+                  value={needs.sportBurn}
+                />
+                <li className="mt-1 flex items-baseline justify-between border-t border-border pt-2 font-medium">
+                  <span>Total</span>
+                  <span className="num">{needs.tdee} kcal/jour</span>
+                </li>
+              </ul>
+              <p className="mt-3 text-xs text-muted">
+                Métabolisme de base {needs.bmr} kcal. Les séances sont chiffrées par
+                leur équivalent métabolique, dépense de repos déduite pour ne pas la
+                compter deux fois.
+                {needs.sexApproximated
+                  ? " Sexe non renseigné : valeur intermédiaire entre les deux formules."
+                  : ""}
+              </p>
+
+              <div className="mt-4">
+                <div className="mb-1.5 text-[0.7rem] tracking-[0.12em] text-muted uppercase">
+                  Tes journées, hors sport
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {NEAT_LEVELS.map((level) => (
+                    <button
+                      key={level.id}
+                      type="button"
+                      onClick={() => neatStore.set(level.id)}
+                      title={level.summary}
+                      className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                        neat === level.id
+                          ? "border-accent bg-accent-soft font-medium text-accent"
+                          : "border-border2 text-muted hover:text-text"
+                      }`}
+                    >
+                      {level.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <ActivityEditor weightKg={profile.weightKg} />
+
+            <NutritionSection
+              cards={nutritionAdvice(goal, needs, profile.weightKg ?? 0, sportMinutes)}
+            />
           </>
         )}
       </div>
-
-      <NutritionSection cards={program.nutrition} />
     </>
+  );
+}
+
+function Line({ label, value }: { label: string; value: number }) {
+  return (
+    <li className="flex items-baseline justify-between gap-3 text-muted">
+      <span>{label}</span>
+      <span className="num text-text">{value} kcal/jour</span>
+    </li>
   );
 }
 
