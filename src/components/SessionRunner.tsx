@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ExerciseDemo } from "@/components/ExerciseDemo";
 import { LoadGauge } from "@/components/LoadGauge";
 import { askNotifications } from "@/lib/notify";
+import { kilos } from "@/lib/format";
+import {
+  describePerformance,
+  lastPerformance,
+  repRange,
+  suggestNext,
+} from "@/lib/overload";
+import { useHistory } from "@/lib/useHistory";
 import { keepScreenAwake, releaseWakeLock } from "@/lib/wakeLock";
 import { LOAD_LABELS, loadLevel } from "@/lib/loadLevel";
 import { RestTimer } from "@/components/RestTimer";
@@ -82,6 +90,40 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
   const currentStep = focusPos >= 0 ? flatSteps[focusPos] : null;
   const currentSet = currentStep ? getSet(session, currentStep.exerciseId, currentStep.setIndex) : undefined;
   const currentLoad = currentStep ? loadLevel(currentStep.reps) : null;
+
+  /*
+   * Surcharge progressive. La séance en cours est exclue de la recherche :
+   * sinon, dès la première série validée, elle deviendrait sa propre référence
+   * et la suggestion tournerait en rond.
+   */
+  const { history } = useHistory();
+  const previous = currentStep
+    ? lastPerformance(history, currentStep.exerciseName, session.id)
+    : null;
+  const suggestion = currentStep ? suggestNext(previous, currentStep.reps) : null;
+  const suggestedWeight =
+    suggestion && (suggestion.kind === "increase" || suggestion.kind === "hold")
+      ? suggestion.weight
+      : null;
+
+  /*
+   * Le champ de poids part sur la charge proposée plutôt que vide. Écrire dans
+   * une série non validée n'enregistre rien : `completed` reste faux, et les
+   * courbes ne comptent que les séries validées. C'est une proposition posée
+   * d'avance, corrigeable d'un chiffre.
+   */
+  const prefilled = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentStep || !currentSet || suggestedWeight === null) return;
+    const cle = `${currentStep.exerciseId}-${currentStep.setIndex}`;
+    // Une seule fois par série, et non « dès que le champ est vide » : sinon
+    // effacer pour saisir une autre valeur le remplirait aussitôt, et le champ
+    // deviendrait impossible à vider.
+    if (prefilled.current === cle) return;
+    prefilled.current = cle;
+    if (currentSet.weight !== null) return;
+    onUpdateSet(currentStep.exerciseId, currentStep.setIndex, { weight: suggestedWeight });
+  }, [currentStep, currentSet, suggestedWeight, onUpdateSet]);
 
   /*
    * Écran maintenu allumé pendant la séance : c'est ce qui rend l'alarme de
@@ -208,6 +250,38 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
               {currentStep.exerciseTip ? ` · ${currentStep.exerciseTip}` : ""}
             </span>
           </div>
+
+          {previous && (
+            <div className="mt-2 rounded-lg border border-border bg-surface2 px-3 py-2 text-[0.78rem]">
+              <span className="text-muted">
+                La dernière fois,{" "}
+                {new Date(previous.date).toLocaleDateString("fr-FR", {
+                  day: "2-digit",
+                  month: "long",
+                })}{" "}
+                :{" "}
+              </span>
+              <span className="text-text">{describePerformance(previous)}</span>
+              {suggestion?.kind === "increase" && (
+                <div className="mt-1 text-accent">
+                  Tu as tenu le haut de la fourchette partout : passe à{" "}
+                  <span className="font-medium">{kilos(suggestion.weight)}</span>.
+                </div>
+              )}
+              {suggestion?.kind === "hold" && (
+                <div className="mt-1 text-muted">
+                  Reste à {kilos(suggestion.weight)} jusqu&apos;à tenir{" "}
+                  {repRange(currentStep.reps)?.high} répétitions sur toutes les séries.
+                </div>
+              )}
+              {suggestion?.kind === "reps" && (
+                <div className="mt-1 text-accent">
+                  Haut de la fourchette tenu partout : ajoute une ou deux
+                  répétitions, ou ralentis la descente.
+                </div>
+              )}
+            </div>
+          )}
 
           {!started ? (
             <div className="mt-5">

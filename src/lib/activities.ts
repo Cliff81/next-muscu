@@ -9,6 +9,8 @@
  * portent le même nom.
  */
 
+import { decimal } from "@/lib/format";
+
 export type Intensity = "light" | "moderate" | "vigorous";
 export type SportKind = "team" | "solo";
 
@@ -133,11 +135,6 @@ export function programMinutes(durations: string[]): number {
     .map((n) => n.reduce((a, b) => a + b, 0) / n.length);
   if (!moyennes.length) return 60;
   return Math.round(moyennes.reduce((a, b) => a + b, 0) / moyennes.length);
-}
-
-/** Nombre à une décimale, avec la virgule française. */
-export function decimal(value: number): string {
-  return (Math.round(value * 10) / 10).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 }
 
 /** Minutes hebdomadaires exprimées en heures, pour l'affichage. */

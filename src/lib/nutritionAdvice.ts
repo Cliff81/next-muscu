@@ -1,4 +1,5 @@
-import { decimal, hoursLabel } from "@/lib/activities";
+import { hoursLabel } from "@/lib/activities";
+import { decimal } from "@/lib/format";
 import type { ComputedNeeds, Goal } from "@/lib/nutrition";
 import type { NutritionCard } from "@/lib/types";
 
