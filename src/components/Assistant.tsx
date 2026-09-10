@@ -227,10 +227,10 @@ function StepYou({
 
   return (
     <>
-      <Heading eyebrow="Étape 1 eyebrow 4">Parle-nous de toi</Heading>
+      <Heading eyebrow="Étape 1 sur 4">Parle-nous de toi</Heading>
       <p className="mt-3 text-sm text-muted">
         Tout est facultatif. Ces informations servent à calibrer le programme et à
-        estimer tes needs alimentaires — tu peux passer et les remplir plus tard.
+        estimer tes besoins alimentaires — tu peux passer et les remplir plus tard.
       </p>
 
       <div className="mt-5 grid grid-cols-3 gap-3">
@@ -239,7 +239,7 @@ function StepYou({
         <Field id="age" label="Âge" unit="ans" value={age} onChange={setAge} placeholder="30" />
       </div>
 
-      <FieldGroup label="Sex">
+      <FieldGroup label="Sexe">
         {SEXES.map((s) => (
           <Chip key={s.id} active={sex === s.id} onClick={() => setSex(sex === s.id ? null : s.id)}>
             {s.name}
@@ -342,7 +342,7 @@ function StepGoal({
 }) {
   return (
     <>
-      <Heading eyebrow="Étape 2 eyebrow 4">Sur quoi veux-tu agir ?</Heading>
+      <Heading eyebrow="Étape 2 sur 4">Sur quoi veux-tu agir ?</Heading>
       <div className="mt-5 flex flex-col gap-2">
         <OptionCard
           title="Programme sportif"
@@ -351,12 +351,12 @@ function StepGoal({
         />
         <OptionCard
           title="Alimentation"
-          summary="On estime tes needs en calories et en macronutriments"
+          summary="On estime tes besoins en calories et en macronutriments"
           onClick={onNutrition}
         />
       </div>
       <p className="mt-4 text-xs text-muted">
-        Tu pourras relancer l&apos;assistant pour l&apos;autre volet depuis ton profile.
+        Tu pourras relancer l&apos;assistant pour l&apos;autre volet depuis ton profil.
       </p>
     </>
   );
@@ -376,10 +376,10 @@ function StepFrequency({
   const selected = FREQUENCIES.find((f) => f.days === value);
   return (
     <>
-      <Heading eyebrow="Étape 3 eyebrow 4">Combien de séances par semaine ?</Heading>
+      <Heading eyebrow="Étape 3 sur 4">Combien de séances par semaine ?</Heading>
       <p className="mt-3 text-sm text-muted">
         Plus de séances, c&apos;est plus de volume d&apos;entraînement, donc des
-        progrès plus rapides. Jusqu&apos;à un point : au-delà de cinq days, c&apos;est
+        progrès plus rapides. Jusqu&apos;à un point : au-delà de cinq jours, c&apos;est
         la récupération qui limite, pas l&apos;entraînement.
       </p>
       <div className="mt-5 flex flex-wrap gap-1.5">
@@ -428,7 +428,7 @@ function StepType({
 
   return (
     <>
-      <Heading eyebrow="Étape 4 eyebrow 4">Quel type de programme ?</Heading>
+      <Heading eyebrow="Étape 4 sur 4">Quel type de programme ?</Heading>
       <p className="mt-3 text-sm text-muted">
         Adaptés à {frequency} séance{frequency > 1 ? "s" : ""} par semaine :
       </p>
@@ -479,11 +479,11 @@ function StepNutrition({
 
   return (
     <>
-      <Heading eyebrow="Alimentation">Tes needs estimés</Heading>
+      <Heading eyebrow="Alimentation">Tes besoins estimés</Heading>
       <p className="mt-3 text-sm text-muted">
         Calcul par la formule de Mifflin-St Jeor. Ce sont des estimations de
-        population : prends-les comme point de départ et ajuste-les eyebrow
-        l&apos;évolution réelle de ton weight.
+        population : prends-les comme point de départ et ajuste-les sur
+        l&apos;évolution réelle de ton poids.
       </p>
 
       <div className="mt-5 flex flex-col gap-2">
@@ -511,12 +511,12 @@ function StepNutrition({
       {needs && "missing" in needs ? (
         <p className="mt-4 rounded-xl bg-surface2 px-4 py-3 text-sm text-muted">
           Il manque {needs.missing.join(", ")} pour faire ce calcul. Renseigne-les
-          dans ton profile, puis reviens ici.
+          dans ton profil, puis reviens ici.
         </p>
       ) : needs ? (
         <>
           <div className="mt-5 grid grid-cols-2 gap-2">
-            <StatTile value={`${needs.calories}`} unit="kcal/jour" label="Goal" strong />
+            <StatTile value={`${needs.calories}`} unit="kcal/jour" label="Objectif" strong />
             <StatTile value={`${needs.protein}`} unit="g" label="Protéines" />
             <StatTile value={`${needs.carbs}`} unit="g" label="Glucides" />
             <StatTile value={`${needs.fat}`} unit="g" label="Lipides" />
@@ -525,7 +525,7 @@ function StepNutrition({
             Métabolisme de base {needs.bmr} kcal · dépense estimée{" "}
             {needs.tdee} kcal
             {needs.sexApproximated
-              ? " · sex non renseigné : value intermédiaire entre les deux formules"
+              ? " · sexe non renseigné : valeur intermédiaire entre les deux formules"
               : ""}
           </p>
           <PrimaryButton onClick={onDone}>Terminer</PrimaryButton>

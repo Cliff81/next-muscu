@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { ExerciseDemo } from "@/components/ExerciseDemo";
+import { LoadGauge } from "@/components/LoadGauge";
+import { LOAD_LABELS, loadLevel } from "@/lib/loadLevel";
 import { RestTimer } from "@/components/RestTimer";
 import { formatDuration, sessionProgress } from "@/lib/session";
 import type { Day, SessionLog, SetLog } from "@/lib/types";
@@ -77,6 +79,7 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
   const focusPos = focus ? flatSteps.findIndex((s) => s.exerciseId === focus.exerciseId && s.setIndex === focus.setIndex) : -1;
   const currentStep = focusPos >= 0 ? flatSteps[focusPos] : null;
   const currentSet = currentStep ? getSet(session, currentStep.exerciseId, currentStep.setIndex) : undefined;
+  const currentLoad = currentStep ? loadLevel(currentStep.reps) : null;
   const isFirstStepOfSession = focusPos === 0;
 
   function handleFinish() {
@@ -185,9 +188,13 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
             </div>
           </div>
           {currentStep.exerciseSub && <p className="mt-0.5 text-[0.8rem] text-muted">{currentStep.exerciseSub}</p>}
-          <div className="mt-2 text-[0.78rem] text-muted">
-            Cible : {currentStep.reps} · {currentStep.restLabel}
-            {currentStep.exerciseTip && <span> · {currentStep.exerciseTip}</span>}
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[0.78rem] text-muted">
+            {currentLoad && <LoadGauge level={currentLoad} />}
+            <span>
+              Cible : {currentStep.reps} · {currentStep.restLabel}
+              {currentLoad ? ` · ${LOAD_LABELS[currentLoad]}` : ""}
+              {currentStep.exerciseTip ? ` · ${currentStep.exerciseTip}` : ""}
+            </span>
           </div>
 
           {!started ? (

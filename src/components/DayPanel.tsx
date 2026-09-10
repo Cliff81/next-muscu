@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { ExerciseDemo } from "@/components/ExerciseDemo";
+import { LoadGauge } from "@/components/LoadGauge";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import type { CatalogExercise } from "@/lib/catalog";
 import { activeSessionStore, programStore } from "@/lib/stores";
+import { LOAD_LABELS, loadLevel } from "@/lib/loadLevel";
 import { swapExercise } from "@/lib/swapExercise";
 import type { Day } from "@/lib/types";
 
@@ -60,7 +62,9 @@ export function DayPanel({ day }: { day: Day }) {
             <div className="text-[0.65rem] tracking-[0.1em] text-muted uppercase">Conseil</div>
           </div>
           <div className="flex flex-col gap-2">
-            {section.exercises.map((exercise) => (
+            {section.exercises.map((exercise) => {
+              const load = loadLevel(exercise.reps);
+              return (
               <div
                 key={exercise.id}
                 className="grid grid-cols-1 items-center gap-1 rounded-lg border border-border bg-surface p-4 sm:grid-cols-[2fr_0.6fr_1fr_1.4fr] sm:gap-2"
@@ -85,12 +89,18 @@ export function DayPanel({ day }: { day: Day }) {
                   {exercise.series}
                 </div>
                 <div className="text-[0.9rem] before:content-['Reps:_'] before:text-[0.7rem] before:text-muted before:font-sans sm:before:content-none">
-                  {exercise.reps}
-                  <span className="mt-0.5 block text-[0.68rem] text-muted">{exercise.restLabel}</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    {load && <LoadGauge level={load} />}
+                    {exercise.reps}
+                  </span>
+                  <span className="mt-0.5 block text-[0.68rem] text-muted">
+                    {load ? `${exercise.restLabel} · ${LOAD_LABELS[load]}` : exercise.restLabel}
+                  </span>
                 </div>
                 <div className="text-[0.78rem] text-[#b8b8b8]">{exercise.tip}</div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ))}

@@ -52,7 +52,7 @@ function SignInScreen() {
         {googleConfigured() ? (
           <>
             <p className="mt-5 text-sm text-muted">
-              Connecte-toi pour retrouver ton profile et ton programme.
+              Connecte-toi pour retrouver ton profil et ton programme.
             </p>
             <div
               ref={(el) => {
@@ -83,7 +83,7 @@ function SignInScreen() {
               Commencer
             </button>
             <p className="mt-4 text-xs text-muted">
-              La connexion Google n&apos;est pas configurée eyebrow cette installation.
+              La connexion Google n&apos;est pas configurée sur cette installation.
             </p>
           </>
         )}
