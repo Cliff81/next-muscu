@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { Achievements } from "@/components/Achievements";
 import { WeightChart } from "@/components/WeightChart";
 import { distinctExerciseNames, weightProgressionFor } from "@/lib/progressData";
 import { formatDuration, sessionProgress } from "@/lib/session";
@@ -47,7 +48,9 @@ export default function ProgressPage() {
         <p className="mt-6 text-sm text-muted">
           Aucune séance enregistrée pour l&apos;instant. Termine une séance pour voir apparaître ta progression ici.
         </p>
-      ) : (
+      ) : null}
+
+      {history.length > 0 && (
         <>
           <section className="mt-8">
             <h2 className="font-display mb-3 text-2xl text-accent2">Progression des charges</h2>
@@ -121,6 +124,8 @@ export default function ProgressPage() {
           </section>
         </>
       )}
+
+      <Achievements history={history} />
     </div>
   );
 }

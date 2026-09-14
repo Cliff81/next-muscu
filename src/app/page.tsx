@@ -36,7 +36,7 @@ export default function Home() {
 
   return (
     <>
-      <Header program={program} />
+      <Header program={program} editing={editing} />
       <div className="mx-auto w-full max-w-[900px] px-8 pb-16">
         <DayTabs
           days={program.days}

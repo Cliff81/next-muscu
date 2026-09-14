@@ -12,6 +12,17 @@ import type { Day, Exercise, Program, Section } from "@/lib/types";
  * magasin et remonte le changement d'elle-même.
  */
 
+/**
+ * Renomme le programme.
+ *
+ * Seul le nom change : le suffixe (« 5 jours ») reste calculé d'après le
+ * nombre de journées, et les programmes mis de côté prennent ce nom comme
+ * étiquette — c'est lui qui les distingue dans la bibliothèque.
+ */
+export function renameProgram(program: Program, title: string): Program {
+  return { ...program, title };
+}
+
 /** Un identifiant de journée encore libre. */
 function freeDayId(program: Program): string {
   const used = new Set(program.days.map((d) => d.id));
