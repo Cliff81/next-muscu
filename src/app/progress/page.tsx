@@ -5,7 +5,10 @@ import { useMemo, useState } from "react";
 import { Achievements } from "@/components/Achievements";
 import { BodyWeightSection } from "@/components/BodyWeightSection";
 import { WeightChart } from "@/components/WeightChart";
-import { bestOneRepMax, distinctExerciseNames, weightProgressionFor } from "@/lib/progressData";
+import { bestOneRepMax, detectPlateau, distinctExerciseNames, weightProgressionFor } from "@/lib/progressData";
+import { frenchName } from "@/lib/exerciseNames";
+import { SessionEditor } from "@/components/SessionEditor";
+import type { SessionLog } from "@/lib/types";
 import { kilos } from "@/lib/format";
 import { formatDuration, sessionProgress } from "@/lib/session";
 import { useHistory } from "@/lib/useHistory";
@@ -18,7 +21,8 @@ const dateLongue: Intl.DateTimeFormatOptions = {
 };
 
 export default function ProgressPage() {
-  const { history, removeSession } = useHistory();
+  const { history, removeSession, updateSession } = useHistory();
+  const [correction, setCorrection] = useState<SessionLog | null>(null);
   const exerciseNames = useMemo(() => distinctExerciseNames(history), [history]);
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
 
@@ -34,6 +38,10 @@ export default function ProgressPage() {
   );
   const record = useMemo(
     () => (activeExercise ? bestOneRepMax(history, activeExercise) : null),
+    [history, activeExercise]
+  );
+  const plateau = useMemo(
+    () => (activeExercise ? detectPlateau(history, activeExercise) : null),
     [history, activeExercise]
   );
 
@@ -68,7 +76,7 @@ export default function ProgressPage() {
               >
                 {exerciseNames.map((name) => (
                   <option key={name} value={name}>
-                    {name}
+                    {frenchName(name)}
                   </option>
                 ))}
               </select>
@@ -80,6 +88,13 @@ export default function ProgressPage() {
                 {" "}— d&apos;après {record.reps} × {kilos(record.weight)} le{" "}
                 {new Date(record.date).toLocaleDateString("fr-FR", dateLongue)}. Formule
                 d&apos;Epley : une estimation, pas une charge à tenter à froid.
+              </p>
+            )}
+            {plateau && (
+              <p className="mt-2 rounded-lg border border-warn/40 bg-surface2 px-4 py-2.5 text-[0.8rem] text-muted">
+                <span className="text-warn">Plateau</span> — ton meilleur 1RM ({kilos(plateau.best)}) n&apos;a
+                plus été battu depuis {plateau.sessions} séances, le dernier record date du {plateau.since}.{" "}
+                {plateau.hint}
               </p>
             )}
           </section>
@@ -109,6 +124,16 @@ export default function ProgressPage() {
                           {formatDuration(session.durationSeconds)}
                         </span>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => setCorrection(session)}
+                        aria-label={`Corriger la séance ${session.dayCode} du ${new Date(
+                          session.startedAt
+                        ).toLocaleDateString("fr-FR", dateLongue)}`}
+                        className="rounded-md border border-border px-2 py-1 text-[0.75rem] text-muted transition hover:border-accent hover:text-accent"
+                      >
+                        Corriger
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
@@ -142,6 +167,14 @@ export default function ProgressPage() {
       <BodyWeightSection />
 
       <Achievements history={history} />
+
+      {correction && (
+        <SessionEditor
+          session={correction}
+          onSave={updateSession}
+          onClose={() => setCorrection(null)}
+        />
+      )}
     </div>
   );
 }

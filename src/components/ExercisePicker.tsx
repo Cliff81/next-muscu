@@ -13,6 +13,7 @@ import {
 import { exerciseImageUrl } from "@/lib/exerciseImages";
 import { usableExercises } from "@/lib/generateProgram";
 import type { Exercise } from "@/lib/types";
+import { frenchName } from "@/lib/exerciseNames";
 
 const label = <T extends string>(dict: Record<T, string>, key: T | null): string =>
   key ? (dict[key] ?? key) : "";
@@ -21,6 +22,9 @@ const label = <T extends string>(dict: Record<T, string>, key: T | null): string
 function searchableText(e: CatalogExercise): string {
   return [
     e.name,
+    // On cherche aussi en français : « développé couché » doit trouver le
+    // Barbell Bench Press.
+    frenchName(e.name),
     label(EQUIPMENT_LABELS, e.equipment),
     ...e.muscles.map((m) => MUSCLE_LABELS[m] ?? m),
     ...e.secondary.map((m) => MUSCLE_LABELS[m] ?? m),
@@ -196,7 +200,10 @@ function Candidates({
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[0.85rem] font-medium">{exercise.name}</div>
+                      <div className="truncate text-[0.85rem] font-medium">{frenchName(exercise.name)}</div>
+                      {frenchName(exercise.name) !== exercise.name && (
+                        <div className="truncate text-[0.68rem] text-muted/80">{exercise.name}</div>
+                      )}
                       <div className="truncate text-[0.7rem] text-muted">
                         {[
                           label(EQUIPMENT_LABELS, exercise.equipment),

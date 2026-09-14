@@ -82,3 +82,51 @@ export function weightProgressionFor(history: SessionLog[], exerciseName: string
     .filter((p): p is WeightPoint => p !== null)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
+
+export type Plateau = {
+  /** Séances consécutives sans progrès, la dernière comprise. */
+  sessions: number;
+  /** Date de la dernière fois où le meilleur a été battu. */
+  since: string;
+  best: number;
+  hint: string;
+};
+
+/**
+ * Plateau : le meilleur 1RM estimé n'a plus été battu depuis `minSessions`
+ * séances où l'exercice a été fait.
+ *
+ * On regarde le 1RM et non la charge : passer de 5 × 100 à 8 × 100 est un
+ * progrès que la charge seule ne voit pas. Le seuil de quatre séances laisse
+ * passer les mauvais jours ; en dessous, on crierait au loup à chaque fatigue.
+ */
+export function detectPlateau(
+  history: SessionLog[],
+  exerciseName: string,
+  minSessions = 4
+): Plateau | null {
+  const points = weightProgressionFor(history, exerciseName);
+  if (points.length < minSessions + 1) return null;
+
+  let best = -Infinity;
+  let bestAt = points[0].date;
+  let sansProgres = 0;
+  for (const p of points) {
+    if (p.oneRepMax > best) {
+      best = p.oneRepMax;
+      bestAt = p.date;
+      sansProgres = 0;
+    } else {
+      sansProgres++;
+    }
+  }
+  if (sansProgres < minSessions) return null;
+
+  return {
+    sessions: sansProgres,
+    since: new Date(bestAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "long" }),
+    best,
+    hint:
+      "Pistes : une série de moins mais plus lourde, une variante du mouvement, ou une semaine allégée avant de repartir.",
+  };
+}

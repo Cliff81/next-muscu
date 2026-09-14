@@ -25,6 +25,7 @@ import {
 } from "@/lib/customProgram";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import { swapExercise } from "@/lib/swapExercise";
+import { frenchName } from "@/lib/exerciseNames";
 import type { Program } from "@/lib/types";
 import { SUPPORTS, type Support } from "@/lib/homeTraining";
 import { PAIN_AREAS, type PainArea } from "@/lib/painAreas";
@@ -1135,7 +1136,7 @@ function StepReview({
                       className="flex items-center gap-2 rounded-lg bg-surface2 px-3 py-2 text-[0.8rem]"
                     >
                       <span className="min-w-0 flex-1">
-                        {exercise.name}
+                        {frenchName(exercise.name)}
                         <span className="text-muted">
                           {" "}
                           · {exercise.series}×{exercise.reps}

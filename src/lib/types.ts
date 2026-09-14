@@ -80,4 +80,10 @@ export type SessionLog = {
   finishedAt: string | null;
   durationSeconds: number | null;
   exercises: ExerciseLog[];
+  /**
+   * Date de la dernière correction à la main. Une séance terminée ne change
+   * plus — sauf pour rectifier une charge mal saisie : c'est cette date qui
+   * arbitre alors entre deux appareils, la plus récente l'emporte.
+   */
+  editedAt?: string;
 };

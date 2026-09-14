@@ -1,6 +1,7 @@
 "use client";
 
-import { useConvexAuth } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { mountGoogleButton } from "@/lib/googleButton";
 import { tokenStore, tokenValide } from "@/lib/googleToken";
 import { googleConfigured, type Profile } from "@/lib/profile";
@@ -16,12 +17,24 @@ import { googleConfigured, type Profile } from "@/lib/profile";
 export function SyncStatus({ profile }: { profile: Profile }) {
   const { isAuthenticated } = useConvexAuth();
   const hasToken = tokenValide(tokenStore.useValue());
+  const acces = useQuery(api.access.me, isAuthenticated ? {} : "skip");
 
   // Un profil local assumé n'a rien à synchroniser : ne rien promettre.
   if (!googleConfigured() || profile.subject === "local") {
     return (
       <p className="px-3 py-2 text-[0.7rem] leading-snug text-muted">
         Compte local : tes données restent sur cet appareil.
+      </p>
+    );
+  }
+
+  // Connecté, mais hors de la liste d'accès : l'application paraîtrait en
+  // ordre alors que rien ne remonte.
+  if (isAuthenticated && acces && acces.signedIn && !acces.allowed) {
+    return (
+      <p className="px-3 py-2 text-[0.7rem] leading-snug text-accent2">
+        Ce compte Google n&apos;est pas autorisé sur cette application : tes données
+        restent sur cet appareil.
       </p>
     );
   }

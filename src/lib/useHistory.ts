@@ -1,10 +1,20 @@
 "use client";
 
 import { deletedWorkoutsStore, historyStore } from "@/lib/stores";
+import type { SessionLog } from "@/lib/types";
 
 export function useHistory() {
   const history = historyStore.useValue();
-  return { history, removeSession };
+  return { history, removeSession, updateSession };
+}
+
+/**
+ * Remplace une séance corrigée à la main, datée de l'instant : c'est cette
+ * date que le rapprochement compare pour faire voyager la correction.
+ */
+export function updateSession(log: SessionLog): void {
+  const corrigee: SessionLog = { ...log, editedAt: new Date().toISOString() };
+  historyStore.set(historyStore.get().map((s) => (s.id === log.id ? corrigee : s)));
 }
 
 /**

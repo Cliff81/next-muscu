@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireSubject } from "./identity";
+import { optionalSubject, requireSubject } from "./identity";
 
 /**
  * Alphabet sans caractères jumeaux : ni O/0, ni I/1/l. Un code se recopie
@@ -66,6 +66,22 @@ export const create = mutation({
       return { code };
     }
     throw new Error("Impossible de tirer un code libre");
+  },
+});
+
+/** Les partages de la personne, du plus récent au plus ancien. */
+export const mine = query({
+  args: {},
+  handler: async (ctx) => {
+    const subject = await optionalSubject(ctx);
+    if (!subject) return [];
+    const rows = await ctx.db
+      .query("shares")
+      .withIndex("by_subject", (q) => q.eq("subject", subject))
+      .collect();
+    return rows
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((r) => ({ code: r.code, title: r.title, createdAt: r.createdAt }));
   },
 });
 

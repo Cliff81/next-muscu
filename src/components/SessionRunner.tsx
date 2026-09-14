@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ExerciseDemo } from "@/components/ExerciseDemo";
 import { LoadGauge } from "@/components/LoadGauge";
 import { askNotifications } from "@/lib/notify";
+import { frenchName } from "@/lib/exerciseNames";
+import { detectPlateau } from "@/lib/progressData";
 import { kilos } from "@/lib/format";
 import {
   describePerformance,
@@ -101,6 +103,7 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
     ? lastPerformance(history, currentStep.exerciseName, session.id)
     : null;
   const suggestion = currentStep ? suggestNext(previous, currentStep.reps) : null;
+  const plateau = currentStep ? detectPlateau(history, currentStep.exerciseName) : null;
   const suggestedWeight =
     suggestion && (suggestion.kind === "increase" || suggestion.kind === "hold")
       ? suggestion.weight
@@ -166,7 +169,7 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
     if (nextStep && currentStep.restSeconds > 0) {
       setRest({
         key: `${currentStep.exerciseId}-${currentStep.setIndex}`,
-        label: currentStep.exerciseName,
+        label: frenchName(currentStep.exerciseName),
         duration: currentStep.restSeconds,
       });
     }
@@ -228,11 +231,17 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
       {currentStep && currentSet ? (
         <div className="rounded-xl border border-accent/50 bg-surface p-5">
           <div className="mb-1 text-[0.7rem] tracking-[0.1em] text-accent2 uppercase">{currentStep.sectionTitle}</div>
+          {plateau && (
+            <p className="mb-2 rounded-lg border border-warn/40 bg-surface2 px-3 py-2 text-[0.75rem] text-muted">
+              <span className="text-warn">Plateau</span> — pas de progrès depuis {plateau.sessions} séances
+              ({plateau.since}). {plateau.hint}
+            </p>
+          )}
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h3 className="font-display flex items-center gap-2 text-2xl">
-              {currentStep.exerciseName}
+              {frenchName(currentStep.exerciseName)}
               <ExerciseDemo
-                name={currentStep.exerciseName}
+                name={frenchName(currentStep.exerciseName)}
                 images={currentStep.exerciseImages}
                 demo={currentStep.exerciseDemo}
               />
@@ -370,9 +379,9 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
                     }`}
                   >
                     <span className="flex items-center gap-1.5 text-[0.82rem] text-text">
-                      {exerciseDef.name}
+                      {frenchName(exerciseDef.name)}
                       <ExerciseDemo
-                        name={exerciseDef.name}
+                        name={frenchName(exerciseDef.name)}
                         images={exerciseDef.images}
                         demo={exerciseDef.demo}
                       />

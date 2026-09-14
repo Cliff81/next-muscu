@@ -59,10 +59,29 @@ export function mergeWorkouts(
     };
   }
 
+  // Une séance corrigée là-bas plus récemment qu'ici descend et remplace la
+  // copie locale : la seule exception à « une séance terminée ne change plus ».
+  const distantes = new Map(remote.map((s) => [s.id, s]));
+  const corrigees = local.filter((s) => {
+    const d = distantes.get(s.id);
+    return d?.editedAt !== undefined && (s.editedAt === undefined || d.editedAt > s.editedAt);
+  });
+  if (corrigees.length) {
+    return {
+      ...RIEN,
+      toStore: local.map((s) => (corrigees.includes(s) ? (distantes.get(s.id) as SessionLog) : s)),
+    };
+  }
+
   return {
     toStore: null,
-    // Une séance en cours n'a pas encore de résultat à partager.
-    toPush: local.filter((s) => s.finishedAt !== null && !remoteIds.has(s.id)),
+    toPush: local.filter((s) => {
+      if (s.finishedAt === null) return false;
+      if (!remoteIds.has(s.id)) return true;
+      // Corrigée ici plus récemment que là-bas : la correction remonte.
+      const d = distantes.get(s.id);
+      return s.editedAt !== undefined && (d?.editedAt === undefined || s.editedAt > d.editedAt);
+    }),
     // Supprimée ici alors qu'elle est encore listée là-bas : l'ordre n'est pas
     // passé, faute de réseau au moment du geste.
     toRemove: deleted.filter((id) => remoteIds.has(id)),

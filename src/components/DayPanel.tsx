@@ -20,6 +20,7 @@ import { LOAD_LABELS, loadLevel } from "@/lib/loadLevel";
 import { activeSessionStore, programStore } from "@/lib/stores";
 import { swapExercise } from "@/lib/swapExercise";
 import { useReorder } from "@/lib/useReorder";
+import { frenchName } from "@/lib/exerciseNames";
 import type { Day, Exercise, Program, Section } from "@/lib/types";
 
 /** Identifiants des exercices d'une catégorie, dans leur ordre enregistré. */
@@ -208,16 +209,16 @@ export function DayPanel({ day, editing = false, onRemoveDay, doneAt = null, isN
                             <button
                               type="button"
                               {...tri.poignee(sectionIndex, ids(section), exercise.id)}
-                              aria-label={`Déplacer ${exercise.name} dans ${section.title}`}
+                              aria-label={`Déplacer ${frenchName(exercise.name)} dans ${section.title}`}
                               title="Glisser pour changer l'ordre — ou flèches haut et bas"
                               className="cursor-grab rounded-md border border-border px-2 py-1.5 text-sm leading-none text-muted transition select-none hover:border-accent hover:text-accent active:cursor-grabbing"
                             >
                               ⠿
                             </button>
                           )}
-                          {exercise.name}
+                          {frenchName(exercise.name)}
                           <ExerciseDemo
-                            name={exercise.name}
+                            name={frenchName(exercise.name)}
                             images={exercise.images}
                             demo={exercise.demo}
                           />
@@ -238,7 +239,7 @@ export function DayPanel({ day, editing = false, onRemoveDay, doneAt = null, isN
                           min={1}
                           max={20}
                           value={exercise.series}
-                          aria-label={`Séries pour ${exercise.name}`}
+                          aria-label={`Séries pour ${frenchName(exercise.name)}`}
                           onChange={(e) =>
                             apply((p) =>
                               setSetsAndReps(
@@ -262,7 +263,7 @@ export function DayPanel({ day, editing = false, onRemoveDay, doneAt = null, isN
                         <input
                           type="text"
                           value={exercise.reps}
-                          aria-label={`Répétitions pour ${exercise.name}`}
+                          aria-label={`Répétitions pour ${frenchName(exercise.name)}`}
                           onChange={(e) =>
                             apply((p) =>
                               setSetsAndReps(p, day.id, exercise.id, exercise.series, e.target.value)
@@ -287,7 +288,7 @@ export function DayPanel({ day, editing = false, onRemoveDay, doneAt = null, isN
                           <button
                             type="button"
                             onClick={() => apply((p) => removeExercise(p, day.id, exercise.id))}
-                            aria-label={`Retirer ${exercise.name}`}
+                            aria-label={`Retirer ${frenchName(exercise.name)}`}
                             title="Retirer cet exercice"
                             className="rounded-md border border-border px-2 py-1 text-xs text-muted transition hover:border-neg hover:text-neg"
                           >

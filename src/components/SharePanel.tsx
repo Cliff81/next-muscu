@@ -1,6 +1,6 @@
 "use client";
 
-import { useConvexAuth, useMutation } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { Modal } from "@/components/Modal";
@@ -18,6 +18,8 @@ import type { Program } from "@/lib/types";
 export function SharePanel({ program, onClose }: { program: Program; onClose: () => void }) {
   const { isAuthenticated } = useConvexAuth();
   const create = useMutation(api.shares.create);
+  const revoke = useMutation(api.shares.revoke);
+  const partages = useQuery(api.shares.mine, isAuthenticated ? {} : "skip");
   const [lien, setLien] = useState<string | null>(null);
   const [svg, setSvg] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -101,6 +103,43 @@ export function SharePanel({ program, onClose }: { program: Program; onClose: ()
                 Copier le lien
               </button>
             </>
+          )}
+
+          {partages && partages.length > 0 && (
+            <div className="mt-5 border-t border-border pt-3">
+              <div className="text-[0.65rem] tracking-[0.12em] text-muted uppercase">Mes partages</div>
+              <ul className="mt-2 flex flex-col gap-1.5">
+                {partages.map((p) => (
+                  <li
+                    key={p.code}
+                    className="flex items-center justify-between gap-3 rounded-lg bg-surface2 px-3 py-2 text-[0.8rem]"
+                  >
+                    <span className="min-w-0">
+                      <span className="truncate">{p.title}</span>
+                      <span className="ml-2 font-mono text-[0.7rem] text-muted">{p.code}</span>
+                      {lien?.endsWith(`/${p.code}`) && (
+                        <span className="ml-2 text-[0.65rem] text-accent">celui-ci</span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!window.confirm(`Retirer le partage « ${p.title} » ? Le lien cessera de fonctionner.`)) return;
+                        void revoke({ code: p.code })
+                          .then((ok) => notify(ok ? "Partage retiré : le lien ne mène plus à rien." : "Ce partage n'existe plus."))
+                          .catch(() => notify("Impossible de retirer le partage pour l'instant."));
+                      }}
+                      className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted transition hover:border-neg hover:text-neg"
+                    >
+                      Retirer
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[0.7rem] text-muted">
+                Un lien retiré cesse de fonctionner aussitôt. Ce que la personne a déjà gardé chez elle reste chez elle.
+              </p>
+            </div>
           )}
         </>
       )}

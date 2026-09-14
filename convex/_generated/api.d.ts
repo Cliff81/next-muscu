@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as access from "../access.js";
 import type * as identity from "../identity.js";
 import type * as libraries from "../libraries.js";
 import type * as outings from "../outings.js";
@@ -25,6 +26,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  access: typeof access;
   identity: typeof identity;
   libraries: typeof libraries;
   outings: typeof outings;

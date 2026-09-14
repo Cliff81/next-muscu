@@ -29,6 +29,7 @@ export const sessionLogSchema = z.object({
   finishedAt: z.union([z.string(), z.null()]),
   durationSeconds: z.union([z.number(), z.null()]),
   exercises: z.array(exerciseLogSchema),
+  editedAt: z.string().min(1).optional(),
 });
 
 export const historySchema = z.array(sessionLogSchema);
