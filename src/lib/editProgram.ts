@@ -1,5 +1,6 @@
 import { catalogDetails, setsAndReps } from "@/lib/generateProgram";
 import { MUSCLE_LABELS, type CatalogExercise, type Muscle } from "@/lib/catalog";
+import { dayMinutes, roundMinutes } from "@/lib/sessionDuration";
 import type { Day, Exercise, Program, Section } from "@/lib/types";
 
 /**
@@ -60,11 +61,42 @@ function refreshCounts(program: Program): Program {
   };
 }
 
-/** Applique une transformation à une seule journée. */
+/** Durée annoncée, recalculée sur le contenu réel de la journée. */
+function withDuration(day: Day): Day {
+  const minutes = dayMinutes(day);
+  return {
+    ...day,
+    restInfo: {
+      ...day.restInfo,
+      duration: minutes === 0 ? "—" : `${roundMinutes(minutes)} min`,
+    },
+  };
+}
+
+/**
+ * Applique une transformation à une seule journée, et remet sa durée d'aplomb.
+ *
+ * Toutes les modifications passent par ici : la durée ne peut donc pas rester
+ * en arrière après un ajout ou un retrait d'exercice, ce qui était le cas quand
+ * elle était écrite en dur.
+ */
 function onDay(program: Program, dayId: string, change: (day: Day) => Day): Program {
+  return refreshDurationStat({
+    ...program,
+    days: program.days.map((day) => (day.id === dayId ? withDuration(change(day)) : day)),
+  });
+}
+
+/** Le compteur « Durée/séance » de l'en-tête suit la moyenne des journées. */
+function refreshDurationStat(program: Program): Program {
+  const durees = program.days.map(dayMinutes).filter((m) => m > 0);
+  if (!durees.length) return program;
+  const moyenne = roundMinutes(durees.reduce((a, b) => a + b, 0) / durees.length);
   return {
     ...program,
-    days: program.days.map((day) => (day.id === dayId ? change(day) : day)),
+    statsRow: program.statsRow.map((stat) =>
+      stat.label === "Durée/séance" ? { ...stat, value: `~${moyenne}'` } : stat
+    ),
   };
 }
 
@@ -81,7 +113,7 @@ export function addDay(program: Program): { program: Program; dayId: string } {
     tips: [],
   };
   return {
-    program: refreshCounts({ ...program, days: [...program.days, day] }),
+    program: refreshDurationStat(refreshCounts({ ...program, days: [...program.days, day] })),
     dayId: id,
   };
 }
@@ -92,7 +124,9 @@ export function addDay(program: Program): { program: Program; dayId: string } {
  */
 export function removeDay(program: Program, dayId: string): Program {
   if (program.days.length <= 1) return program;
-  return refreshCounts({ ...program, days: program.days.filter((d) => d.id !== dayId) });
+  return refreshDurationStat(
+    refreshCounts({ ...program, days: program.days.filter((d) => d.id !== dayId) })
+  );
 }
 
 export function renameDay(program: Program, dayId: string, title: string, description: string): Program {

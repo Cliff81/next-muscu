@@ -19,6 +19,8 @@ import {
 } from "@/lib/catalog";
 import { MUSCLE_LABELS, EQUIPMENT_LABELS } from "@/lib/catalog";
 import { HOME_FUNDAMENTALS, availableAtHome, homeEquipment, type Support } from "@/lib/homeTraining";
+import { PAIN_AREAS, hurtsFor, type PainArea } from "@/lib/painAreas";
+import { roundMinutes, warmupMinutes, workMinutes } from "@/lib/sessionDuration";
 import type { Day, Exercise, Program, Section } from "@/lib/types";
 
 export type ProgramType = "fullbody" | "upperlower" | "ppl" | "split" | "endurance";
@@ -242,6 +244,8 @@ const HOME_ROTATIONS: Record<ProgramType, DayTemplate[]> = {
   ],
 };
 
+const WARMUP = "5–10 min";
+
 const WEEKDAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
 /**
@@ -277,6 +281,10 @@ export type Answers = {
   place?: Place;
   /** Mobilier et matériel disponibles à la maison. */
   supports?: Support[];
+  /** Zones douloureuses déclarées : les mouvements qui les chargent sont écartés. */
+  painAreas?: PainArea[];
+  /** Temps disponible par séance, en minutes. Les séances y sont ramenées. */
+  minutesPerSession?: number;
 };
 
 export function setsAndReps(
@@ -324,12 +332,14 @@ export function usableExercises(
   catalog: CatalogExercise[],
   place: Place = "gym",
   supports: Support[] = [],
-  emphasis: "strength" | "endurance" = "strength"
+  emphasis: "strength" | "endurance" = "strength",
+  painAreas: PainArea[] = []
 ): CatalogExercise[] {
   const equipment = place === "home" ? homeEquipment(supports) : GYM_EQUIPMENT;
   const excluded = emphasis === "endurance" ? EXCLUDED_CATEGORIES : STRENGTH_EXCLUDED;
   return catalog.filter((e) => {
     if (e.category && excluded.has(e.category)) return false;
+    if (painAreas.length && hurtsFor(e, painAreas)) return false;
     if (e.equipment !== null && !equipment.includes(e.equipment)) return false;
     // À la maison, un mouvement peut demander un meuble que le catalogue
     // n'exprime pas : pas de tractions sans barre, pas de dips sans chaise.
@@ -341,12 +351,20 @@ export function generateProgram(
   catalog: CatalogExercise[],
   answers: Answers
 ): Program {
-  const { frequency, type, level, place = "gym", supports = [] } = answers;
+  const {
+    frequency,
+    type,
+    level,
+    place = "gym",
+    supports = [],
+    painAreas = [],
+    minutesPerSession,
+  } = answers;
   const rotation = place === "home" ? HOME_ROTATIONS[type] : ROTATIONS[type];
   const used = new Set<string>();
 
   const emphasis = type === "endurance" ? ("endurance" as const) : ("strength" as const);
-  const usable = usableExercises(catalog, place, supports, emphasis);
+  const usable = usableExercises(catalog, place, supports, emphasis, painAreas);
 
   /**
    * Combien de mouvements polyarticulaires dans une section de `count`
@@ -459,6 +477,45 @@ export function generateProgram(
       }
     }
 
+    /*
+     * Ramener la séance au temps disponible. On retire depuis la fin — les
+     * modèles sont ordonnés par priorité, la dernière section est la moins
+     * essentielle — et jamais en dessous de deux exercices : plus bas, ce n'est
+     * plus une séance.
+     */
+    const warmup = warmupMinutes(WARMUP);
+    let trimmed = 0;
+    if (minutesPerSession) {
+      const estimation = () => workMinutes(sections.flatMap((sec) => sec.exercises)) + warmup;
+      const total = () => sections.reduce((n, sec) => n + sec.exercises.length, 0);
+      while (estimation() > minutesPerSession && total() > 2) {
+        // La section la plus fournie cède d'abord ; à égalité, la dernière.
+        let cible = -1;
+        let max = 0;
+        for (let k = sections.length - 1; k >= 0; k--) {
+          if (sections[k].exercises.length > max) {
+            max = sections[k].exercises.length;
+            cible = k;
+          }
+        }
+        if (cible < 0 || max === 0) break;
+        sections[cible] = {
+          ...sections[cible],
+          exercises: sections[cible].exercises.slice(0, -1),
+        };
+        trimmed++;
+      }
+      // Une section vidée par le rognage n'a plus lieu d'être affichée.
+      for (let k = sections.length - 1; k >= 0; k--) {
+        if (!sections[k].exercises.length) sections.splice(k, 1);
+      }
+    }
+
+    const dayExercises = sections.flatMap((sec) => sec.exercises);
+    const estimatedMinutes = dayExercises.length
+      ? roundMinutes(workMinutes(dayExercises) + warmup)
+      : 0;
+
     const muscleTags = [
       ...new Set(template.sections.flatMap((s) => s.muscles.map((m) => MUSCLE_LABELS[m]))),
     ].slice(0, 4);
@@ -471,8 +528,10 @@ export function generateProgram(
       muscleTags,
       sections,
       restInfo: {
-        duration: type === "endurance" ? "45 min" : "60–75 min",
-        warmup: "5–10 min",
+        // Calculée sur le contenu réel, et non annoncée d'avance : une séance
+        // rognée pour tenir dans le temps disponible doit le dire.
+        duration: estimatedMinutes ? `${estimatedMinutes} min` : "—",
+        warmup: WARMUP,
         suggestedDay: WEEKDAYS[Math.round((i * 7) / frequency) % 7],
       },
       tips: [
@@ -485,11 +544,40 @@ export function generateProgram(
         place === "home"
           ? "Note tes répétitions à chaque séance : c'est la progression qui compte"
           : "Note tes charges à chaque séance : c'est la progression qui compte",
+        ...(trimmed > 0
+          ? [
+              `Séance ramenée à ${dayExercises.length} exercices pour tenir dans ${minutesPerSession} minutes : ${trimmed} ont été retirés. Donne-toi plus de temps pour un volume complet.`,
+            ]
+          : []),
       ],
     });
   }
 
+  // Le compteur d'en-tête suit les journées réellement produites, au lieu
+  // d'annoncer une durée fixe que le rognage démentait.
+  const durees = days.map(
+    (d) => workMinutes(d.sections.flatMap((sec) => sec.exercises)) + warmupMinutes(WARMUP)
+  );
+  const averageMinutes = durees.length
+    ? roundMinutes(durees.reduce((a, b) => a + b, 0) / durees.length)
+    : 0;
+
   const typeName = PROGRAM_TYPES.find((t) => t.id === type)?.name ?? type;
+
+  // Les douleurs déclarées expliquent une bonne part de ce qui manque : sans
+  // ce mot, un programme amaigri passerait pour une défaillance du générateur.
+  if (painAreas.length && days.length) {
+    const zones = painAreas
+      .map((a) => PAIN_AREAS.find((z) => z.id === a)?.name.toLowerCase() ?? a)
+      .join(", ");
+    days[0] = {
+      ...days[0],
+      tips: [
+        ...days[0].tips,
+        `Mouvements écartés pour ménager : ${zones}. Ce n'est pas un avis médical — si la douleur dure ou revient à l'effort, vois un médecin plutôt que de contourner.`,
+      ],
+    };
+  }
 
   // Répétitions inévitables : au poids du corps sans matériel, le catalogue ne
   // propose pas de quoi remplir cinq journées distinctes. Mieux vaut l'annoncer
@@ -534,7 +622,7 @@ export function generateProgram(
     statsRow: [
       { value: String(frequency), label: "Séances/sem" },
       { value: String(7 - frequency), label: "Jours off" },
-      { value: type === "endurance" ? "~45'" : "~70'", label: "Durée/séance" },
+      { value: `~${averageMinutes}'`, label: "Durée/séance" },
     ],
     days,
     nutrition: [],

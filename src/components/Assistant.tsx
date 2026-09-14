@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { onboardingStore, FREQUENCIES, type Step } from "@/lib/onboarding";
+import { onboardingStore, FREQUENCIES, SESSION_TIMES, type Step } from "@/lib/onboarding";
 import { loadCatalog, type Level } from "@/lib/catalog";
 import { generateProgram, PROGRAM_TYPES, type Place, type ProgramType } from "@/lib/generateProgram";
 import { SUPPORTS, type Support } from "@/lib/homeTraining";
+import { PAIN_AREAS, type PainArea } from "@/lib/painAreas";
 import { computeNeeds, GOALS, type Needs, type Goal } from "@/lib/nutrition";
 import { profileStore, type Experience, type Profile, type Sex } from "@/lib/profile";
 import { goalStore, programStore } from "@/lib/stores";
@@ -20,6 +21,8 @@ export function Assistant({ profile }: { profile: Profile }) {
   const [frequency, setFrequency] = useState(4);
   const [place, setPlace] = useState<Place>("gym");
   const [supports, setSupports] = useState<Support[]>([]);
+  const [painAreas, setPainAreas] = useState<PainArea[]>([]);
+  const [minutesPerSession, setMinutes] = useState(60);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [needs, setNeeds] = useState<Needs | null>(null);
@@ -34,7 +37,17 @@ export function Assistant({ profile }: { profile: Profile }) {
       const level = profile.experience
         ? LEVEL_FROM_EXPERIENCE[profile.experience]
         : "intermediate";
-      programStore.set(generateProgram(catalog, { frequency, type, level, place, supports }));
+      programStore.set(
+        generateProgram(catalog, {
+          frequency,
+          type,
+          level,
+          place,
+          supports,
+          painAreas,
+          minutesPerSession,
+        })
+      );
       finish();
     } catch {
       setError("Le catalogue d'exercices n'a pas pu être chargé.");
@@ -62,15 +75,29 @@ export function Assistant({ profile }: { profile: Profile }) {
           supports={supports}
           onPlace={setPlace}
           onSupports={setSupports}
-          onNext={() => setStep("frequency")}
+          onNext={() => setStep("pain")}
           onBack={() => setStep("goal")}
+        />
+      ) : step === "pain" ? (
+        <StepPain
+          areas={painAreas}
+          onChange={setPainAreas}
+          onNext={() => setStep("frequency")}
+          onBack={() => setStep("place")}
         />
       ) : step === "frequency" ? (
         <StepFrequency
           value={frequency}
           onChange={setFrequency}
+          onNext={() => setStep("time")}
+          onBack={() => setStep("pain")}
+        />
+      ) : step === "time" ? (
+        <StepTime
+          value={minutesPerSession}
+          onChange={setMinutes}
           onNext={() => setStep("type")}
-          onBack={() => setStep("place")}
+          onBack={() => setStep("frequency")}
         />
       ) : step === "type" ? (
         <StepType
@@ -78,7 +105,7 @@ export function Assistant({ profile }: { profile: Profile }) {
           busy={busy}
           error={error}
           onChoose={build}
-          onBack={() => setStep("frequency")}
+          onBack={() => setStep("time")}
         />
       ) : (
         <StepNutrition
@@ -94,7 +121,7 @@ export function Assistant({ profile }: { profile: Profile }) {
   );
 }
 
-const ORDER: Step[] = ["you", "goal", "place", "frequency", "type"];
+const ORDER: Step[] = ["you", "goal", "place", "pain", "frequency", "time", "type"];
 
 function Frame({ step, children }: { step: Step; children: React.ReactNode }) {
   const index = ORDER.indexOf(step);
@@ -240,7 +267,7 @@ function StepYou({
 
   return (
     <>
-      <Heading eyebrow="Étape 1 sur 5">Parle-nous de toi</Heading>
+      <Heading eyebrow="Étape 1 sur 7">Parle-nous de toi</Heading>
       <p className="mt-3 text-sm text-muted">
         Tout est facultatif. Ces informations servent à calibrer le programme et à
         estimer tes besoins alimentaires — tu peux passer et les remplir plus tard.
@@ -355,7 +382,7 @@ function StepGoal({
 }) {
   return (
     <>
-      <Heading eyebrow="Étape 2 sur 5">Sur quoi veux-tu agir ?</Heading>
+      <Heading eyebrow="Étape 2 sur 7">Sur quoi veux-tu agir ?</Heading>
       <div className="mt-5 flex flex-col gap-2">
         <OptionCard
           title="Programme sportif"
@@ -405,7 +432,7 @@ function StepPlace({
 
   return (
     <>
-      <Heading eyebrow="Étape 3 sur 5">Où t&apos;entraînes-tu ?</Heading>
+      <Heading eyebrow="Étape 3 sur 7">Où t&apos;entraînes-tu ?</Heading>
       <p className="mt-3 text-sm text-muted">
         Le programme est construit avec ce dont tu disposes vraiment.
       </p>
@@ -454,6 +481,116 @@ function StepPlace({
   );
 }
 
+/**
+ * Douleurs déclarées.
+ *
+ * Ce n'est pas un questionnaire médical et l'écran le dit : c'est un filtre de
+ * bon sens, qui met de côté les mouvements connus pour charger fortement une
+ * articulation. Sauter la question est le cas normal.
+ */
+function StepPain({
+  areas,
+  onChange,
+  onNext,
+  onBack,
+}: {
+  areas: PainArea[];
+  onChange: (a: PainArea[]) => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  const toggle = (id: PainArea) =>
+    onChange(areas.includes(id) ? areas.filter((a) => a !== id) : [...areas, id]);
+
+  return (
+    <>
+      <Heading eyebrow="Étape 4 sur 7">As-tu mal quelque part ?</Heading>
+      <p className="mt-3 text-sm text-muted">
+        Les mouvements qui chargent ces zones seront écartés du programme. Si tu
+        n&apos;as mal nulle part, passe à la suite.
+      </p>
+
+      <div className="mt-5 flex flex-wrap gap-1.5">
+        {PAIN_AREAS.map((zone) => (
+          <Chip key={zone.id} active={areas.includes(zone.id)} onClick={() => toggle(zone.id)}>
+            {zone.name}
+          </Chip>
+        ))}
+      </div>
+
+      {areas.length > 0 && (
+        <ul className="mt-4 flex flex-col gap-1.5">
+          {areas.map((id) => {
+            const zone = PAIN_AREAS.find((z) => z.id === id);
+            return (
+              <li key={id} className="rounded-xl bg-surface2 px-4 py-2.5 text-[0.8rem] text-muted">
+                <span className="text-text">{zone?.name}</span> — {zone?.summary.toLowerCase()}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <p className="mt-4 text-[0.75rem] text-muted">
+        Ce n&apos;est pas un avis médical. Une douleur qui dure, ou qui revient à
+        chaque effort, demande un médecin — pas un programme aménagé.
+      </p>
+
+      <PrimaryButton onClick={onNext}>
+        {areas.length ? "Continuer" : "Je n'ai mal nulle part"}
+      </PrimaryButton>
+      <LinkButton onClick={onBack}>Revenir en arrière</LinkButton>
+    </>
+  );
+}
+
+/** Temps disponible par séance : les séances y seront ramenées. */
+function StepTime({
+  value,
+  onChange,
+  onNext,
+  onBack,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  const choisi = SESSION_TIMES.find((t) => t.minutes === value);
+  return (
+    <>
+      <Heading eyebrow="Étape 6 sur 7">Combien de temps par séance ?</Heading>
+      <p className="mt-3 text-sm text-muted">
+        Échauffement compris. Une séance trop longue pour ton emploi du temps est
+        une séance qu&apos;on saute : mieux vaut court et tenu.
+      </p>
+      <div className="mt-5 flex flex-wrap gap-1.5">
+        {SESSION_TIMES.map((t) => (
+          <button
+            key={t.minutes}
+            type="button"
+            onClick={() => onChange(t.minutes)}
+            className={`font-display size-14 rounded-full border text-lg transition ${
+              value === t.minutes
+                ? "border-accent bg-accent text-accent-fg"
+                : "border-border2 text-muted hover:text-text"
+            }`}
+          >
+            {t.minutes}
+          </button>
+        ))}
+      </div>
+      {choisi && (
+        <p className="mt-4 rounded-xl bg-surface2 px-4 py-3 text-sm text-muted">
+          <span className="text-text">{choisi.minutes} minutes</span> — {choisi.note}
+        </p>
+      )}
+      <PrimaryButton onClick={onNext}>Continuer</PrimaryButton>
+      <LinkButton onClick={onBack}>Revenir en arrière</LinkButton>
+    </>
+  );
+}
+
 function StepFrequency({
   value,
   onChange,
@@ -468,7 +605,7 @@ function StepFrequency({
   const selected = FREQUENCIES.find((f) => f.days === value);
   return (
     <>
-      <Heading eyebrow="Étape 4 sur 5">Combien de séances par semaine ?</Heading>
+      <Heading eyebrow="Étape 5 sur 7">Combien de séances par semaine ?</Heading>
       <p className="mt-3 text-sm text-muted">
         Plus de séances, c&apos;est plus de volume d&apos;entraînement, donc des
         progrès plus rapides. Jusqu&apos;à un point : au-delà de cinq jours, c&apos;est
@@ -521,7 +658,7 @@ function StepType({
 
   return (
     <>
-      <Heading eyebrow="Étape 5 sur 5">Quel type de programme ?</Heading>
+      <Heading eyebrow="Étape 7 sur 7">Quel type de programme ?</Heading>
       <p className="mt-3 text-sm text-muted">
         Adaptés à {frequency} séance{frequency > 1 ? "s" : ""} par semaine :
       </p>
