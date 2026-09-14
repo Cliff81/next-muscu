@@ -92,12 +92,15 @@
   --calm-soft: #eef1ec;
 }
 
-/* Le basculement d'un visage à l'autre ne doit pas clignoter. */
-body {
-  transition:
-    background-color 0.25s ease,
-    color 0.25s ease;
-}
+/*
+ * Pas de transition sur le basculement d'un visage à l'autre.
+ *
+ * Le `body` était seul à s'animer sur 0,25 s : tout le reste — surfaces,
+ * bordures, encres, accents — changeait dans l'image même. On voyait donc des
+ * cartes claires sur un fond encore sombre, un quart de seconde. Un
+ * basculement franc, où toute la page change d'un coup, est plus propre que
+ * cette dissonance.
+ */
 
 @theme inline {
   --color-bg: var(--bg);

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import { ConvexClient } from "@/components/ConvexClient";
 import { SignInGate } from "@/components/SignInGate";
@@ -53,8 +54,30 @@ export default function RootLayout({
     <html
       lang="fr"
       className={`${bebasNeue.variable} ${dmSans.variable} h-full antialiased`}
+      // Le script ci-dessous pose `data-mode` avant que React reprenne la
+      // main : l'attribut diffère donc du HTML rendu par le serveur, et c'est
+      // voulu. Sans cette mention, React signale une hydratation divergente.
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-bg text-text">
+        {/*
+          Le visage posé avant la première peinture.
+
+          Les pages sont statiques : le serveur ne connaît pas la route au
+          moment de rendre le gabarit, et React ne reprend la main qu'après
+          l'affichage. Sans ces trois lignes, ouvrir directement Nutrition
+          montrait la page en couleurs Stronger le temps d'une image — ce que
+          voit surtout l'application installée, qui s'ouvre là où on l'a
+          quittée. La règle est la même que dans `ModeBridge`.
+
+          Passé par `next/script` plutôt qu'une balise nue : React 19 refuse
+          d'exécuter un script rendu dans un composant.
+        */}
+        <Script id="visage" strategy="beforeInteractive">
+          {"(function(){var p=location.pathname;" +
+            "document.documentElement.dataset.mode=" +
+            "p.indexOf('/nutrition')===0?'healthier':p.indexOf('/progress')===0?'better':'stronger';})()"}
+        </Script>
         <ConvexClient>
           <ModeBridge />
           <ServiceWorkerBridge />

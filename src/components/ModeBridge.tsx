@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 
 export type Mode = "stronger" | "healthier" | "better";
 
@@ -22,21 +22,28 @@ const THEME_COLORS: Record<Mode, string> = {
 };
 
 /**
+ * Sur le serveur, il n'y a pas de mise en page à mesurer : l'effet de
+ * disposition n'y tourne pas, et React le signale. On choisit donc une fois
+ * pour toutes, au chargement du module.
+ */
+const useAvantPeinture = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+/**
  * Pose le visage courant sur `<html>`, d'après la route.
  *
- * Dans un effet, et non pendant le rendu : écrire dans le DOM pendant le
- * rendu est un effet de bord que le compilateur React refuse, et c'est
- * exactement ce à quoi un effet sert — synchroniser un système extérieur avec
- * l'état de React.
+ * **Avant la peinture**, et non après : `usePathname` a déjà la nouvelle route
+ * quand la nouvelle page se rend, si bien qu'un effet ordinaire arrivait une
+ * image trop tard — on voyait la page Nutrition peinte dans les couleurs de
+ * Stronger, puis le basculement. L'effet de disposition les fait tenir dans la
+ * même image.
  *
- * Conséquence acceptée : en arrivant directement sur /nutrition, la page
- * s'affiche une image dans les couleurs de Stronger avant de basculer. En
- * navigation interne — le cas courant — le changement est immédiat.
+ * Le tout premier affichage, lui, est réglé par le script du gabarit : à
+ * l'ouverture directe de /nutrition, React n'a pas encore repris la main.
  */
 export function ModeBridge() {
   const path = usePathname();
 
-  useEffect(() => {
+  useAvantPeinture(() => {
     const mode = modeFor(path);
     document.documentElement.dataset.mode = mode;
     document
