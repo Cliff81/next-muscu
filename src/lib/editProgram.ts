@@ -203,6 +203,36 @@ export function addExercise(
   }));
 }
 
+/**
+ * Réordonne les exercices d'une catégorie.
+ *
+ * L'ordre demandé ne vaut qu'à l'intérieur de la catégorie : un exercice ne
+ * change pas de section par ce chemin. Les identifiants inconnus sont ignorés
+ * et ceux que l'ordre oublie restent à la fin — un ordre incomplet réarrange
+ * ce qu'il nomme sans rien perdre.
+ */
+export function reorderExercises(
+  program: Program,
+  dayId: string,
+  sectionIndex: number,
+  ordre: string[]
+): Program {
+  return onDay(program, dayId, (day) => ({
+    ...day,
+    sections: day.sections.map((section, i) => {
+      if (i !== sectionIndex) return section;
+      const restants = new Map(section.exercises.map((e) => [e.id, e]));
+      const ranges = ordre.flatMap((id) => {
+        const exercice = restants.get(id);
+        if (!exercice) return [];
+        restants.delete(id);
+        return [exercice];
+      });
+      return { ...section, exercises: [...ranges, ...restants.values()] };
+    }),
+  }));
+}
+
 export function removeExercise(program: Program, dayId: string, exerciseId: string): Program {
   return onDay(program, dayId, (day) => ({
     ...day,

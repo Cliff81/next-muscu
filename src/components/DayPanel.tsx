@@ -13,12 +13,25 @@ import {
   removeSection,
   renameDay,
   renameSection,
+  reorderExercises,
   setSetsAndReps,
 } from "@/lib/editProgram";
 import { LOAD_LABELS, loadLevel } from "@/lib/loadLevel";
 import { activeSessionStore, programStore } from "@/lib/stores";
 import { swapExercise } from "@/lib/swapExercise";
-import type { Day, Program } from "@/lib/types";
+import { useReorder } from "@/lib/useReorder";
+import type { Day, Exercise, Program, Section } from "@/lib/types";
+
+/** Identifiants des exercices d'une catégorie, dans leur ordre enregistré. */
+const ids = (section: Section) => section.exercises.map((e) => e.id);
+
+/** Les exercices rangés selon une liste d'identifiants. */
+function ordonnes(exercises: Exercise[], ordre: string[]): Exercise[] {
+  return ordre.flatMap((id) => {
+    const exercice = exercises.find((e) => e.id === id);
+    return exercice ? [exercice] : [];
+  });
+}
 
 type Props = {
   day: Day;
@@ -40,6 +53,10 @@ export function DayPanel({ day, editing = false, onRemoveDay }: Props) {
 
   const replaceExercise = (exerciseId: string, replacement: CatalogExercise) =>
     apply((p) => swapExercise(p, day.id, exerciseId, replacement));
+
+  const tri = useReorder((sectionIndex, ordre) =>
+    apply((p) => reorderExercises(p, day.id, sectionIndex, ordre))
+  );
 
   return (
     <div className="animate-fade">
@@ -162,15 +179,31 @@ export function DayPanel({ day, editing = false, onRemoveDay }: Props) {
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                {section.exercises.map((exercise) => {
+                {ordonnes(section.exercises, tri.ordre(sectionIndex, ids(section))).map((exercise) => {
                   const load = loadLevel(exercise.reps);
+                  const ligne = tri.ligne(sectionIndex, exercise.id);
                   return (
                     <div
                       key={exercise.id}
-                      className="grid grid-cols-1 items-center gap-1 rounded-lg border border-border bg-surface p-4 sm:grid-cols-[2fr_0.6fr_1fr_1.4fr] sm:gap-2"
+                      ref={ligne.ref}
+                      style={ligne.style}
+                      className={`grid grid-cols-1 items-center gap-1 rounded-lg border bg-surface p-4 sm:grid-cols-[2fr_0.6fr_1fr_1.4fr] sm:gap-2 ${
+                        ligne.actif ? "border-accent shadow-lg select-none" : "border-border"
+                      }`}
                     >
                       <div className="text-[0.9rem] font-medium">
                         <span className="inline-flex items-center gap-1.5">
+                          {editing && (
+                            <button
+                              type="button"
+                              {...tri.poignee(sectionIndex, ids(section), exercise.id)}
+                              aria-label={`Déplacer ${exercise.name} dans ${section.title}`}
+                              title="Glisser pour changer l'ordre — ou flèches haut et bas"
+                              className="cursor-grab rounded-md border border-border px-2 py-1.5 text-sm leading-none text-muted transition select-none hover:border-accent hover:text-accent active:cursor-grabbing"
+                            >
+                              ⠿
+                            </button>
+                          )}
                           {exercise.name}
                           <ExerciseDemo
                             name={exercise.name}
