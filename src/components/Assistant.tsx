@@ -6,6 +6,7 @@ import { loadCatalog, type Level } from "@/lib/catalog";
 import { generateProgram, PROGRAM_TYPES, type Place, type ProgramType } from "@/lib/generateProgram";
 import { SUPPORTS, type Support } from "@/lib/homeTraining";
 import { PAIN_AREAS, type PainArea } from "@/lib/painAreas";
+import { archiveProgram, libraryStore, removeSaved, type SavedProgram } from "@/lib/programLibrary";
 import { computeNeeds, GOALS, type Needs, type Goal } from "@/lib/nutrition";
 import { profileStore, type Experience, type Profile, type Sex } from "@/lib/profile";
 import { goalStore, programStore } from "@/lib/stores";
@@ -34,6 +35,9 @@ export function Assistant({ profile }: { profile: Profile }) {
     setError(null);
     try {
       const catalog = await loadCatalog();
+      // Le programme en cours est mis de côté avant d'être remplacé : c'est le
+      // moment où il disparaissait sans retour possible.
+      archiveProgram(programStore.get());
       const level = profile.experience
         ? LEVEL_FROM_EXPERIENCE[profile.experience]
         : "intermediate";
@@ -68,6 +72,18 @@ export function Assistant({ profile }: { profile: Profile }) {
         <StepGoal
           onSport={() => setStep("place")}
           onNutrition={() => setStep("nutrition")}
+          onLibrary={() => setStep("library")}
+        />
+      ) : step === "library" ? (
+        <StepLibrary
+          onRestore={(saved) => {
+            // Le programme en cours est conservé lui aussi : on échange, on ne
+            // perd rien.
+            archiveProgram(programStore.get());
+            programStore.set(saved.program);
+            finish();
+          }}
+          onBack={() => setStep("goal")}
         />
       ) : step === "place" ? (
         <StepPlace
@@ -376,10 +392,13 @@ function Field({
 function StepGoal({
   onSport,
   onNutrition,
+  onLibrary,
 }: {
   onSport: () => void;
   onNutrition: () => void;
+  onLibrary: () => void;
 }) {
+  const library = libraryStore.useValue();
   return (
     <>
       <Heading eyebrow="Étape 2 sur 7">Sur quoi veux-tu agir ?</Heading>
@@ -394,10 +413,96 @@ function StepGoal({
           summary="On estime tes besoins en calories et en macronutriments"
           onClick={onNutrition}
         />
+        {library.length > 0 && (
+          <OptionCard
+            title="Reprendre un programme gardé"
+            summary={`${library.length} programme${library.length > 1 ? "s" : ""} mis de côté`}
+            onClick={onLibrary}
+          />
+        )}
       </div>
       <p className="mt-4 text-xs text-muted">
-        Tu pourras relancer l&apos;assistant pour l&apos;autre volet depuis ton profil.
+        Ton programme actuel est mis de côté avant d&apos;être remplacé : construire
+        autre chose ne le fait pas disparaître.
       </p>
+    </>
+  );
+}
+
+/**
+ * Programmes mis de côté.
+ *
+ * Reprendre l'un d'eux archive d'abord celui en cours : on échange, on ne perd
+ * rien — c'est toute la raison d'être de cet écran.
+ */
+function StepLibrary({
+  onRestore,
+  onBack,
+}: {
+  onRestore: (saved: SavedProgram) => void;
+  onBack: () => void;
+}) {
+  const library = libraryStore.useValue();
+
+  return (
+    <>
+      <Heading eyebrow="Programmes gardés">Reprendre un programme</Heading>
+      <p className="mt-3 text-sm text-muted">
+        Celui que tu utilises en ce moment sera mis de côté à son tour.
+      </p>
+
+      {library.length === 0 ? (
+        <p className="mt-5 rounded-xl bg-surface2 px-4 py-3 text-sm text-muted">
+          Aucun programme gardé pour l&apos;instant.
+        </p>
+      ) : (
+        <ul className="mt-5 flex flex-col gap-2">
+          {library.map((saved) => {
+            const jours = saved.program.days.length;
+            const exos = saved.program.days.reduce(
+              (n, d) => n + d.sections.reduce((m, sec) => m + sec.exercises.length, 0),
+              0
+            );
+            return (
+              <li
+                key={saved.id}
+                className="flex items-center gap-3 rounded-xl border border-border bg-surface2 p-3"
+              >
+                <button
+                  type="button"
+                  onClick={() => onRestore(saved)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <div className="truncate text-[0.9rem] font-medium">{saved.name}</div>
+                  <div className="text-[0.72rem] text-muted">
+                    {jours} jour{jours > 1 ? "s" : ""} · {exos} exercices · gardé le{" "}
+                    {new Date(saved.savedAt).toLocaleDateString("fr-FR", {
+                      day: "2-digit",
+                      month: "long",
+                    })}
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeSaved(saved.id)}
+                  aria-label={`Oublier ${saved.name}`}
+                  title="Oublier ce programme"
+                  className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted transition hover:border-neg hover:text-neg"
+                >
+                  ✕
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <p className="mt-4 text-[0.75rem] text-muted">
+        Ces programmes restent sur cet appareil : ils ne suivent pas encore d&apos;un
+        téléphone à l&apos;autre.
+      </p>
+
+      <LinkButton onClick={onBack}>Revenir en arrière</LinkButton>
     </>
   );
 }

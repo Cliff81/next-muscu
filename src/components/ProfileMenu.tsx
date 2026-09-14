@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { onboardingStore } from "@/lib/onboarding";
 import { profileStore, type Profile } from "@/lib/profile";
 import { confirmReset, exportProgram, importProgramFromFile } from "@/lib/programFile";
+import { archiveProgram } from "@/lib/programLibrary";
 import { tokenStore } from "@/lib/googleToken";
 import { SyncStatus } from "@/components/SyncStatus";
 import { useProgram } from "@/lib/useProgram";
@@ -58,6 +59,14 @@ export function ProfileMenu({ profile }: { profile: Profile }) {
               }}
             >
               Exporter le programme actuel
+            </Item>
+            <Item
+              onClick={() => {
+                setOpen(false);
+                archiveProgram(program);
+              }}
+            >
+              Garder ce programme de côté
             </Item>
             <Item
               onClick={() => {

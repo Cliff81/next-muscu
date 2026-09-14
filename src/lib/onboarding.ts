@@ -5,7 +5,16 @@ import { createLocalStore } from "@/lib/createLocalStore";
 /** Mémorise que l'assistant a été mené à son terme, pour ne pas le rejouer. */
 export const onboardingStore = createLocalStore<boolean>("muscu:assistant", false);
 
-export type Step = "you" | "goal" | "place" | "pain" | "frequency" | "time" | "type" | "nutrition";
+export type Step =
+  | "you"
+  | "goal"
+  | "library"
+  | "place"
+  | "pain"
+  | "frequency"
+  | "time"
+  | "type"
+  | "nutrition";
 
 /**
  * Ce que change chaque fréquence. Volontairement nuancé : « plus de jours =
