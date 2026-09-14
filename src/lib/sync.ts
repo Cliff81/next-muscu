@@ -22,6 +22,7 @@ import {
   setLibraryFromRemote,
 } from "@/lib/programLibrary";
 import { DEFAULT_SETTINGS, parseSettings, sameSettings } from "@/lib/settings";
+import { parseDeloads, purgeExpired } from "@/lib/deload";
 import { decideTrophySync, type Engraved } from "@/lib/trophies";
 import { repairStrings } from "@/lib/repairProgram";
 import {
@@ -35,6 +36,7 @@ import {
   programStore,
   programTouchedAt,
   seedProgramTimestamp,
+  deloadsStore,
   settingsStore,
   trophyStore,
   weightsStore,
@@ -81,6 +83,7 @@ export function useSync(): void {
   const localNeat = neatStore.useValue();
   const localGoal = goalStore.useValue();
   const localSettings = settingsStore.useValue();
+  const localDeloads = deloadsStore.useValue();
   const localHistory = historyStore.useValue();
   const localDeleted = deletedWorkoutsStore.useValue();
   const localTrophies = trophyStore.useValue();
@@ -138,6 +141,14 @@ export function useSync(): void {
     if (GOALS.some((g) => g.id === remoteProfile.goal)) {
       goalStore.set(remoteProfile.goal as Goal);
     }
+  }, [isAuthenticated, remoteProfile]);
+
+  // --- descente des allègements : uniquement si rien n'est décidé ici.
+  useEffect(() => {
+    if (!isAuthenticated || !remoteProfile) return;
+    if (deloadsStore.get().length > 0) return;
+    const distants = purgeExpired(parseDeloads(remoteProfile.deloads) ?? []);
+    if (distants.length) deloadsStore.set(distants);
   }, [isAuthenticated, remoteProfile]);
 
   // --- descente des réglages : uniquement si les réglages d'ici sont encore
@@ -285,7 +296,8 @@ export function useSync(): void {
       remoteProfile.neat === localNeat &&
       remoteProfile.goal === localGoal &&
       JSON.stringify(remoteProfile.activities ?? []) === JSON.stringify(localActivities) &&
-      sameSettings(parseSettings(remoteProfile.settings) ?? DEFAULT_SETTINGS, localSettings);
+      sameSettings(parseSettings(remoteProfile.settings) ?? DEFAULT_SETTINGS, localSettings) &&
+      JSON.stringify(remoteProfile.deloads ?? []) === JSON.stringify(localDeloads);
     if (memes) return;
     void saveProfile({
       heightCm: localProfile.heightCm,
@@ -297,6 +309,7 @@ export function useSync(): void {
       neat: localNeat,
       goal: localGoal,
       settings: localSettings,
+      deloads: localDeloads,
     }).catch(() => {
       // Hors ligne : sans effet, on retentera.
     });
@@ -305,6 +318,7 @@ export function useSync(): void {
     localActivities,
     localGoal,
     localNeat,
+    localDeloads,
     localProfile,
     localSettings,
     remoteProfile,

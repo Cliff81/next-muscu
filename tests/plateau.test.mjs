@@ -16,5 +16,8 @@ const tardif = [seance("01", 100), seance("02", 105), seance("03", 105), seance(
 eq("plateau compté depuis le dernier record, pas depuis le début", detectPlateau(tardif, "Squat").sessions, 4);
 eq("exercice absent", detectPlateau(stagne, "Curl"), null);
 eq("seuil réglable", detectPlateau(stagne, "Squat", 6), null);
+const allege = [...stagne, seance("06", 90), seance("07", 90)];
+eq("sans exclusion, les séances allégées comptent comme un non-progrès", detectPlateau(allege, "Squat").sessions, 6);
+eq("exclues, elles ne comptent pas", detectPlateau(allege, "Squat", 4, (iso) => iso.startsWith("2026-09-06") || iso.startsWith("2026-09-07")).sessions, 4);
 console.log(ko ? `\n${ko} échec(s)` : "\nTout passe");
 process.exit(ko ? 1 : 0);

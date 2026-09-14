@@ -42,6 +42,7 @@ export default defineSchema({
     neat: v.optional(v.string()),
     goal: v.optional(v.string()),
     settings: v.optional(v.any()),
+    deloads: v.optional(v.any()),
   }).index("by_subject", ["subject"]),
 
   programs: defineTable({

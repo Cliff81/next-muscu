@@ -35,6 +35,8 @@ const MEASUREMENTS = {
   goal: v.optional(v.string()),
   /** Réglages de l'application, décrits côté client par `settings.ts`. */
   settings: v.optional(v.any()),
+  /** Semaines allégées en cours, décrites côté client par `deload.ts`. */
+  deloads: v.optional(v.any()),
 };
 
 /**

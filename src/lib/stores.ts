@@ -7,6 +7,7 @@ import { createLocalStore } from "@/lib/createLocalStore";
 import { programSchema } from "@/lib/programSchema";
 import { repairStrings } from "@/lib/repairProgram";
 import { parseWeights, type WeightEntry } from "@/lib/bodyWeight";
+import { parseDeloads, type Deload } from "@/lib/deload";
 import { parseOutings, type Outing } from "@/lib/outings";
 import { DEFAULT_SETTINGS, parseSettings, type Settings } from "@/lib/settings";
 import { parseEngraved, type Engraved } from "@/lib/trophies";
@@ -130,6 +131,9 @@ export const weightsStore = {
     weightsTouchedAt.set(updatedAt);
   },
 };
+
+/** Semaines allégées — voir `deload.ts`. Suivent le profil vers Convex. */
+export const deloadsStore = createLocalStore<Deload[]>("muscu:deloads", [], parseDeloads);
 
 /** Réglages — voir `settings.ts`. Suivent le profil vers Convex. */
 export const settingsStore = createLocalStore<Settings>("muscu:settings", DEFAULT_SETTINGS, parseSettings);

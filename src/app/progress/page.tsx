@@ -8,6 +8,9 @@ import { MuscleVolumeSection } from "@/components/MuscleVolumeSection";
 import { WeightChart } from "@/components/WeightChart";
 import { bestOneRepMax, detectPlateau, distinctExerciseNames, weightProgressionFor } from "@/lib/progressData";
 import { frenchName } from "@/lib/exerciseNames";
+import { activeDeload, inDeload, startDeload, stopDeload } from "@/lib/deload";
+import { deloadsStore } from "@/lib/stores";
+import { notify } from "@/lib/toast";
 import { SessionEditor } from "@/components/SessionEditor";
 import type { SessionLog } from "@/lib/types";
 import { kilos } from "@/lib/format";
@@ -41,9 +44,14 @@ export default function ProgressPage() {
     () => (activeExercise ? bestOneRepMax(history, activeExercise) : null),
     [history, activeExercise]
   );
+  const deloads = deloadsStore.useValue();
+  const allegement = activeExercise ? activeDeload(deloads, activeExercise) : null;
   const plateau = useMemo(
-    () => (activeExercise ? detectPlateau(history, activeExercise) : null),
-    [history, activeExercise]
+    () =>
+      activeExercise
+        ? detectPlateau(history, activeExercise, 4, (iso) => inDeload(deloads, activeExercise, iso))
+        : null,
+    [history, activeExercise, deloads]
   );
 
   const sortedHistory = [...history].sort(
@@ -91,13 +99,45 @@ export default function ProgressPage() {
                 d&apos;Epley : une estimation, pas une charge à tenter à froid.
               </p>
             )}
-            {plateau && (
-              <p className="mt-2 rounded-lg border border-warn/40 bg-surface2 px-4 py-2.5 text-[0.8rem] text-muted">
+            {allegement ? (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/40 bg-accent-soft px-4 py-2.5 text-[0.8rem] text-muted">
+                <span>
+                  <span className="text-accent">Semaine allégée</span> jusqu&apos;au{" "}
+                  {new Date(allegement.until).toLocaleDateString("fr-FR", { day: "2-digit", month: "long" })} :
+                  la séance te suggère {Math.round(allegement.factor * 100)} % de ta dernière charge.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    deloadsStore.set(stopDeload(deloadsStore.get(), allegement.exerciseName));
+                    notify("Semaine allégée arrêtée : la progression reprend.");
+                  }}
+                  className="rounded-md border border-border px-2.5 py-1 text-xs text-muted transition hover:border-accent hover:text-accent"
+                >
+                  Arrêter
+                </button>
+              </div>
+            ) : plateau && activeExercise ? (
+              <div className="mt-2 rounded-lg border border-warn/40 bg-surface2 px-4 py-2.5 text-[0.8rem] text-muted">
                 <span className="text-warn">Plateau</span> — ton meilleur 1RM ({kilos(plateau.best)}) n&apos;a
                 plus été battu depuis {plateau.sessions} séances, le dernier record date du {plateau.since}.{" "}
                 {plateau.hint}
-              </p>
-            )}
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      deloadsStore.set(startDeload(deloadsStore.get(), activeExercise));
+                      notify(
+                        `Semaine allégée sur « ${frenchName(activeExercise)} » : pendant sept jours, la séance te suggérera 90 % de ta dernière charge.`
+                      );
+                    }}
+                    className="rounded-md border border-accent/60 px-3 py-1.5 text-xs text-accent transition hover:bg-accent-soft"
+                  >
+                    Lancer une semaine allégée (−10 %)
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <section className="mt-10">

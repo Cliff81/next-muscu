@@ -103,9 +103,11 @@ export type Plateau = {
 export function detectPlateau(
   history: SessionLog[],
   exerciseName: string,
-  minSessions = 4
+  minSessions = 4,
+  /** Séances à ne pas compter comme un non-progrès — celles d'une semaine allégée. */
+  ignore?: (isoDate: string) => boolean
 ): Plateau | null {
-  const points = weightProgressionFor(history, exerciseName);
+  const points = weightProgressionFor(history, exerciseName).filter((p) => !ignore?.(p.date));
   if (points.length < minSessions + 1) return null;
 
   let best = -Infinity;

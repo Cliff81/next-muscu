@@ -1,0 +1,18 @@
+import { timedSeconds, isTimed, formatSeconds } from "../.tests-build/timedSet.mjs";
+let ko = 0;
+const eq = (nom, a, b) => { const ok = JSON.stringify(a) === JSON.stringify(b); if (!ok) { ko++; console.log(`✗ ${nom}\n   attendu ${JSON.stringify(b)}\n   obtenu  ${JSON.stringify(a)}`); } else console.log(`✓ ${nom}`); };
+eq("fourchette : le haut", timedSeconds("30–45 s"), 45);
+eq("tiret simple aussi", timedSeconds("30-45 s"), 45);
+eq("enchaînement : la première durée, l'effort", timedSeconds("30 s effort / 90 s récup"), 30);
+eq("minutes converties", timedSeconds("1 min"), 60);
+eq("une seule durée", timedSeconds("45 s"), 45);
+eq("répétitions : pas une durée", timedSeconds("8–10"), null);
+eq("par jambe : pas une durée", timedSeconds("10/jambe"), null);
+eq("texte libre", timedSeconds("max"), null);
+eq("décimale", timedSeconds("1,5 min"), 90);
+eq("isTimed", [isTimed("30 s"), isTimed("12")], [true, false]);
+eq("format court", formatSeconds(45), "45 s");
+eq("format minute ronde", formatSeconds(120), "2 min");
+eq("format mixte", formatSeconds(90), "1 min 30 s");
+console.log(ko ? `\n${ko} échec(s)` : "\nTout passe");
+process.exit(ko ? 1 : 0);

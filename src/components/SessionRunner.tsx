@@ -7,6 +7,10 @@ import { askNotifications } from "@/lib/notify";
 import { frenchName } from "@/lib/exerciseNames";
 import { detectPlateau } from "@/lib/progressData";
 import { warmupRamp } from "@/lib/warmup";
+import { activeDeload, deloadWeight, inDeload } from "@/lib/deload";
+import { deloadsStore } from "@/lib/stores";
+import { timedSeconds, formatSeconds } from "@/lib/timedSet";
+import { HoldTimer } from "@/components/HoldTimer";
 import { kilos } from "@/lib/format";
 import {
   describePerformance,
@@ -105,10 +109,25 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
     ? lastPerformance(history, currentStep.exerciseName, session.id)
     : null;
   const suggestion = currentStep ? suggestNext(previous, currentStep.reps) : null;
-  const plateau = currentStep ? detectPlateau(history, currentStep.exerciseName) : null;
+  const deloads = deloadsStore.useValue();
+  const allegement = currentStep ? activeDeload(deloads, currentStep.exerciseName) : null;
+  // Pendant la semaine allégée, le plateau se tait : c'est la réponse qu'on
+  // lui apporte, et les séances allégées ne comptent pas comme un non-progrès.
+  const plateau =
+    currentStep && !allegement
+      ? detectPlateau(history, currentStep.exerciseName, 4, (iso) =>
+          inDeload(deloads, currentStep.exerciseName, iso)
+        )
+      : null;
+  const enTemps = currentStep ? timedSeconds(currentStep.reps) : null;
 
-  const suggestedWeight =
-    suggestion && (suggestion.kind === "increase" || suggestion.kind === "hold")
+  // La charge suggérée : celle de la dernière fois réduite pendant l'allègement,
+  // quoi qu'en dise la surcharge progressive ; sinon la suggestion.
+  const suggestedWeight = allegement
+    ? previous?.topWeight != null
+      ? deloadWeight(previous.topWeight, allegement.factor)
+      : null
+    : suggestion && (suggestion.kind === "increase" || suggestion.kind === "hold")
       ? suggestion.weight
       : null;
 
@@ -248,6 +267,15 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
             <p className="mb-2 rounded-lg border border-warn/40 bg-surface2 px-3 py-2 text-[0.75rem] text-muted">
               <span className="text-warn">Plateau</span> — pas de progrès depuis {plateau.sessions} séances
               ({plateau.since}). {plateau.hint}
+            </p>
+          )}
+          {allegement && (
+            <p className="mb-2 rounded-lg border border-accent/40 bg-accent-soft px-3 py-2 text-[0.75rem] text-muted">
+              <span className="text-accent">Semaine allégée</span> jusqu&apos;au{" "}
+              {new Date(allegement.until).toLocaleDateString("fr-FR", { day: "2-digit", month: "long" })} :
+              charge à {Math.round(allegement.factor * 100)} % de la dernière fois
+              {suggestedWeight !== null ? `, soit ${kilos(suggestedWeight)}` : ""}. Récupère, la
+              progression reprend ensuite.
             </p>
           )}
           <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -392,16 +420,45 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[0.65rem] tracking-[0.1em] text-muted uppercase">Répétitions</label>
-                  <input
-                    type="text"
-                    placeholder={currentStep.reps}
-                    value={currentSet.reps}
-                    onChange={(e) =>
-                      onUpdateSet(currentStep.exerciseId, currentStep.setIndex, { reps: e.target.value })
-                    }
-                    className="w-full rounded-md border border-border bg-surface2 px-3 py-2.5 text-sm text-text outline-none focus:border-accent"
-                  />
+                  <label className="mb-1 block text-[0.65rem] tracking-[0.1em] text-muted uppercase">
+                    {enTemps !== null ? "Temps tenu" : "Répétitions"}
+                  </label>
+                  {enTemps !== null ? (
+                    currentSet.reps ? (
+                      <div className="flex items-center justify-between gap-2 rounded-md border border-pos/50 bg-pos-soft px-3 py-2.5 text-sm">
+                        <span className="text-pos">{currentSet.reps}</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onUpdateSet(currentStep.exerciseId, currentStep.setIndex, { reps: "" })
+                          }
+                          className="text-xs text-muted underline"
+                        >
+                          refaire
+                        </button>
+                      </div>
+                    ) : (
+                      <HoldTimer
+                        key={`${currentStep.exerciseId}-${currentStep.setIndex}`}
+                        seconds={enTemps}
+                        onDone={(tenu) =>
+                          onUpdateSet(currentStep.exerciseId, currentStep.setIndex, {
+                            reps: formatSeconds(tenu),
+                          })
+                        }
+                      />
+                    )
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder={currentStep.reps}
+                      value={currentSet.reps}
+                      onChange={(e) =>
+                        onUpdateSet(currentStep.exerciseId, currentStep.setIndex, { reps: e.target.value })
+                      }
+                      className="w-full rounded-md border border-border bg-surface2 px-3 py-2.5 text-sm text-text outline-none focus:border-accent"
+                    />
+                  )}
                 </div>
               </div>
               <button
