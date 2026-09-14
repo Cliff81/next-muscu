@@ -12,11 +12,15 @@ declare global {
           initialize: (config: {
             client_id: string;
             callback: (response: Credential) => void;
+            auto_select?: boolean;
+            use_fedcm_for_prompt?: boolean;
           }) => void;
           renderButton: (
             parent: HTMLElement,
             options: Record<string, string | number>
           ) => void;
+          prompt: () => void;
+          cancel: () => void;
         };
       };
     };
@@ -91,5 +95,47 @@ export async function mountGoogleButton(
   } catch {
     el.dataset.monte = "";
     return "Impossible de joindre Google. Vérifie la connexion Internet.";
+  }
+}
+
+/**
+ * Renouvelle le jeton d'identité sans rien demander.
+ *
+ * Le jeton Google vit une heure et le flux navigateur n'en délivre aucun de
+ * rafraîchissement : sans ce rappel, la synchronisation s'arrêtait une heure
+ * après la connexion et tout restait sur l'appareil. `auto_select` rend un
+ * nouveau jeton sans interaction quand la personne est déjà connectée à Google
+ * et a déjà consenti — c'est-à-dire dans le cas courant.
+ *
+ * En cas d'échec — session Google fermée, consentement révoqué, navigateur qui
+ * bloque — on ne force rien : l'encart du menu de profil propose de se
+ * reconnecter d'un clic.
+ */
+export async function renewGoogleToken(onToken: (jwt: string) => void): Promise<boolean> {
+  if (!googleConfigured()) return false;
+  try {
+    await loadScript();
+    const id = window.google?.accounts?.id;
+    if (!id) return false;
+    return await new Promise<boolean>((resolve) => {
+      let rendu = false;
+      id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        auto_select: true,
+        callback: (response) => {
+          rendu = true;
+          if (response.credential) onToken(response.credential);
+          resolve(Boolean(response.credential));
+        },
+      });
+      id.prompt();
+      // Google ne signale pas toujours un refus : au-delà du délai, on
+      // considère que le renouvellement n'a pas eu lieu plutôt que d'attendre.
+      window.setTimeout(() => {
+        if (!rendu) resolve(false);
+      }, 8000);
+    });
+  } catch {
+    return false;
   }
 }

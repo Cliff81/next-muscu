@@ -8,7 +8,7 @@ import { programSchema } from "@/lib/programSchema";
 import { repairStrings } from "@/lib/repairProgram";
 import type { Program, SessionLog } from "@/lib/types";
 
-export const programStore = createLocalStore<Program>(
+const programStoreRaw = createLocalStore<Program>(
   "muscu:program",
   defaultProgram,
   (valeur) => {
@@ -16,6 +16,56 @@ export const programStore = createLocalStore<Program>(
     return r.success ? repairStrings(r.data as Program) : null;
   }
 );
+
+/**
+ * Quand le programme local a changé pour la dernière fois.
+ *
+ * Sans cette date, la synchronisation ne savait pas laquelle des deux versions
+ * était la plus récente : elle remontait dès que local et distant différaient,
+ * si bien qu'un appareil resté en arrière écrasait le travail fait ailleurs.
+ */
+export const programTouchedAt = createLocalStore<number>("muscu:programTouchedAt", 0);
+
+/**
+ * Toute écriture locale horodate le programme. Passer par cet objet plutôt que
+ * par le magasin brut évite d'avoir à penser à l'horodatage sur chacun des
+ * points d'écriture — il y en a huit, en oublier un se verrait par une
+ * modification qui ne remonte jamais.
+ */
+export const programStore = {
+  useValue: programStoreRaw.useValue,
+  get: programStoreRaw.get,
+  set(value: Program) {
+    programStoreRaw.set(value);
+    programTouchedAt.set(Date.now());
+  },
+  clear() {
+    programStoreRaw.clear();
+    programTouchedAt.set(Date.now());
+  },
+  /** Écriture venue de Convex : ce n'est pas une modification locale. */
+  setFromRemote(value: Program, updatedAt: number) {
+    programStoreRaw.set(value);
+    programTouchedAt.set(updatedAt);
+  },
+  /** Après une remontée réussie : on se cale sur l'heure du serveur. */
+  markSynced(updatedAt: number) {
+    programTouchedAt.set(updatedAt);
+  },
+};
+
+/**
+ * Reprise des installations d'avant l'horodatage. Un programme déjà présent en
+ * local peut contenir des modifications jamais remontées — c'est le cas quand
+ * la session Google avait expiré sans le dire. On le déclare donc récent, pour
+ * qu'il parte vers Convex au lieu d'être écrasé par une copie plus ancienne.
+ */
+export function seedProgramTimestamp(): void {
+  if (typeof window === "undefined") return;
+  if (programTouchedAt.get() > 0) return;
+  if (window.localStorage.getItem("muscu:program") === null) return;
+  programTouchedAt.set(Date.now());
+}
 export const historyStore = createLocalStore<SessionLog[]>("muscu:history", [], (value) =>
   parseHistory(value) as SessionLog[] | null
 );

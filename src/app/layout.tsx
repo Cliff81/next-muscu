@@ -5,6 +5,7 @@ import { SignInGate } from "@/components/SignInGate";
 import { ModeBridge } from "@/components/ModeBridge";
 import { ProgramRepairBridge } from "@/components/ProgramRepairBridge";
 import { ServiceWorkerBridge } from "@/components/ServiceWorkerBridge";
+import { TokenRenewal } from "@/components/TokenRenewal";
 import { SyncBridge } from "@/components/SyncBridge";
 import { TopBar } from "@/components/TopBar";
 import { APP_NAME, APP_TAGLINE } from "@/lib/app";
@@ -56,6 +57,7 @@ export default function RootLayout({
         <ConvexClient>
           <ModeBridge />
           <ServiceWorkerBridge />
+          <TokenRenewal />
           <ProgramRepairBridge />
           <SyncBridge />
           <SignInGate>

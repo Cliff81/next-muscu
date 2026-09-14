@@ -27,11 +27,15 @@ export const save = mutation({
       .query("programs")
       .withIndex("by_subject", (q) => q.eq("subject", subject))
       .unique();
-    const data = { subject, program, updatedAt: Date.now() };
+    // L'horodatage remonte au client, qui s'y cale : comparer une heure locale
+    // à une heure serveur ferait boucler la remontée dès que les deux horloges
+    // divergent de quelques secondes.
+    const updatedAt = Date.now();
+    const data = { subject, program, updatedAt };
     if (existing) {
       await ctx.db.patch(existing._id, data);
-      return existing._id;
+      return { id: existing._id, updatedAt };
     }
-    return await ctx.db.insert("programs", data);
+    return { id: await ctx.db.insert("programs", data), updatedAt };
   },
 });

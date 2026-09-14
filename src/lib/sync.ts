@@ -3,7 +3,6 @@
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect } from "react";
 import { api } from "../../convex/_generated/api";
-import { createLocalStore } from "@/lib/createLocalStore";
 import { profileStore } from "@/lib/profile";
 import { activitiesSchema } from "@/lib/activitiesSchema";
 import { parseHistory } from "@/lib/historySchema";
@@ -11,8 +10,17 @@ import { mergeWorkouts } from "@/lib/mergeWorkouts";
 import type { Activity, NeatLevel } from "@/lib/activities";
 import { NEAT_LEVELS } from "@/lib/activities";
 import { GOALS, type Goal } from "@/lib/nutrition";
+import { decideProgramSync } from "@/lib/mergeProgram";
 import { repairStrings } from "@/lib/repairProgram";
-import { activitiesStore, goalStore, historyStore, neatStore, programStore } from "@/lib/stores";
+import {
+  activitiesStore,
+  goalStore,
+  historyStore,
+  neatStore,
+  programStore,
+  programTouchedAt,
+  seedProgramTimestamp,
+} from "@/lib/stores";
 import type { Program, SessionLog } from "@/lib/types";
 
 /**
@@ -27,7 +35,6 @@ import type { Program, SessionLog } from "@/lib/types";
  * appareil resté hors ligne écraserait au démarrage le travail fait ailleurs —
  * ou l'inverse.
  */
-const syncedAtStore = createLocalStore<number>("muscu:syncedAt", 0);
 
 export function useSync(): void {
   const { isAuthenticated } = useConvexAuth();
@@ -46,25 +53,38 @@ export function useSync(): void {
   const localGoal = goalStore.useValue();
   const localHistory = historyStore.useValue();
 
-  // --- descente : le distant est plus récent que ce qu'on a déjà vu
-  useEffect(() => {
-    if (!isAuthenticated || remoteProgram === undefined || remoteProgram === null) return;
-    if (remoteProgram.updatedAt <= syncedAtStore.get()) return;
-    programStore.set(repairStrings(remoteProgram.program as Program));
-    syncedAtStore.set(remoteProgram.updatedAt);
-  }, [isAuthenticated, remoteProgram]);
+  // Les installations d'avant l'horodatage déclarent leur programme récent,
+  // une fois, pour qu'il remonte au lieu d'être écrasé. Dans un effet : écrire
+  // dans le `localStorage` pendant le rendu est un effet de bord déplacé.
+  useEffect(seedProgramTimestamp, []);
 
-  // --- remontée du programme : après chaque changement local
+  /*
+   * --- programme : c'est la date de modification qui tranche.
+   *
+   * La version la plus récemment modifiée gagne, qu'elle soit ici ou là-bas.
+   * Auparavant la remontée partait dès que les deux versions différaient, sans
+   * regarder les dates : un appareil ouvert après coup renvoyait sa copie
+   * périmée et effaçait le travail fait ailleurs.
+   */
   useEffect(() => {
     if (!isAuthenticated || remoteProgram === undefined) return;
-    const distant = remoteProgram?.program;
-    if (JSON.stringify(distant) === JSON.stringify(localProgram)) return;
-    void saveProgram({ program: localProgram })
-      .then(() => syncedAtStore.set(Date.now()))
-      .catch(() => {
-        // Hors ligne : on garde la version locale et on retentera au prochain
-        // changement ou à la prochaine ouverture.
-      });
+    const decision = decideProgramSync(localProgram, programTouchedAt.get(), remoteProgram);
+
+    if (decision.action === "pull") {
+      programStore.setFromRemote(
+        repairStrings(decision.program as Program),
+        decision.updatedAt
+      );
+      return;
+    }
+    if (decision.action === "push") {
+      void saveProgram({ program: localProgram })
+        .then((r) => programStore.markSynced(r.updatedAt))
+        .catch(() => {
+          // Hors ligne : on garde la version locale et on retentera au prochain
+          // changement ou à la prochaine ouverture.
+        });
+    }
   }, [isAuthenticated, localProgram, remoteProgram, saveProgram]);
 
   // --- descente des sports : uniquement si rien n'a encore été saisi ici.
