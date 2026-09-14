@@ -7,6 +7,8 @@
  * journal, qui note ce qui a réellement eu lieu.
  */
 
+import { decideByTimestamp } from "@/lib/lastWrite";
+
 export type Outing = {
   id: string;
   /** Identifiant dans `SPORTS`. */
@@ -62,21 +64,21 @@ export type OutingsSyncDecision =
   | { action: "none" };
 
 /**
- * Qui, du local ou du distant, fait foi — même règle que pour le programme :
- * la version la plus récemment modifiée gagne. Une sortie se corrige et se
- * supprime, donc l'union ne suffirait pas : il faut un arbitrage par date.
+ * Qui, du local ou du distant, fait foi — la règle commune de `lastWrite`. Une
+ * sortie se corrige et se supprime, donc l'union ne suffirait pas : il faut un
+ * arbitrage par date.
  */
 export function decideOutingsSync(
   local: Outing[],
   touchedAt: number,
   remote: RemoteOutings
 ): OutingsSyncDecision {
-  if (remote === null) return touchedAt > 0 ? { action: "push" } : { action: "none" };
-  if (remote.updatedAt > touchedAt) {
-    return { action: "pull", outings: remote.outings, updatedAt: remote.updatedAt };
-  }
-  if (touchedAt > remote.updatedAt && JSON.stringify(remote.outings) !== JSON.stringify(local)) {
-    return { action: "push" };
-  }
-  return { action: "none" };
+  const decision = decideByTimestamp(
+    local,
+    touchedAt,
+    remote === null ? null : { value: remote.outings, updatedAt: remote.updatedAt }
+  );
+  return decision.action === "pull"
+    ? { action: "pull", outings: decision.value, updatedAt: decision.updatedAt }
+    : decision;
 }

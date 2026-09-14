@@ -9,6 +9,7 @@ import { TrophyBridge } from "@/components/TrophyBridge";
 import { ServiceWorkerBridge } from "@/components/ServiceWorkerBridge";
 import { TokenRenewal } from "@/components/TokenRenewal";
 import { SyncBridge } from "@/components/SyncBridge";
+import { Toaster } from "@/components/Toaster";
 import { TopBar } from "@/components/TopBar";
 import { APP_NAME, APP_TAGLINE } from "@/lib/app";
 import "./globals.css";
@@ -88,6 +89,7 @@ export default function RootLayout({
           <SignInGate>
             <TopBar />
             {children}
+            <Toaster />
           </SignInGate>
         </ConvexClient>
       </body>

@@ -12,6 +12,14 @@ import { NEAT_LEVELS } from "@/lib/activities";
 import { GOALS, type Goal } from "@/lib/nutrition";
 import { decideProgramSync } from "@/lib/mergeProgram";
 import { decideOutingsSync, parseOutings } from "@/lib/outings";
+import {
+  decideLibrarySync,
+  libraryStore,
+  libraryTouchedAt,
+  markLibrarySynced,
+  parseLibrary,
+  setLibraryFromRemote,
+} from "@/lib/programLibrary";
 import { decideTrophySync, type Engraved } from "@/lib/trophies";
 import { repairStrings } from "@/lib/repairProgram";
 import {
@@ -51,12 +59,14 @@ export function useSync(): void {
   const remoteRemoved = useQuery(api.workouts.removed, isAuthenticated ? {} : "skip");
   const remoteTrophies = useQuery(api.trophies.get, isAuthenticated ? {} : "skip");
   const remoteOutings = useQuery(api.outings.get, isAuthenticated ? {} : "skip");
+  const remoteLibrary = useQuery(api.libraries.get, isAuthenticated ? {} : "skip");
   const saveProgram = useMutation(api.programs.save);
   const saveProfile = useMutation(api.profiles.save);
   const saveWorkout = useMutation(api.workouts.save);
   const removeWorkout = useMutation(api.workouts.remove);
   const mergeTrophies = useMutation(api.trophies.merge);
   const saveOutings = useMutation(api.outings.save);
+  const saveLibrary = useMutation(api.libraries.save);
 
   const localProgram = programStore.useValue();
   const localProfile = profileStore.useValue();
@@ -67,6 +77,7 @@ export function useSync(): void {
   const localDeleted = deletedWorkoutsStore.useValue();
   const localTrophies = trophyStore.useValue();
   const localOutings = outingsStore.useValue();
+  const localLibrary = libraryStore.useValue();
 
   // Les installations d'avant l'horodatage déclarent leur programme récent,
   // une fois, pour qu'il remonte au lieu d'être écrasé. Dans un effet : écrire
@@ -208,6 +219,23 @@ export function useSync(): void {
         });
     }
   }, [isAuthenticated, localOutings, remoteOutings, saveOutings]);
+
+  // --- programmes gardés : arbitrage par date, comme le programme actif
+  useEffect(() => {
+    if (!isAuthenticated || remoteLibrary === undefined) return;
+    const decision = decideLibrarySync(localLibrary, libraryTouchedAt.get(), remoteLibrary);
+    if (decision.action === "pull") {
+      setLibraryFromRemote(parseLibrary(decision.entries) ?? [], decision.updatedAt);
+      return;
+    }
+    if (decision.action === "push") {
+      void saveLibrary({ entries: localLibrary })
+        .then((r) => markLibrarySynced(r.updatedAt))
+        .catch(() => {
+          // Hors ligne : on retentera au prochain changement.
+        });
+    }
+  }, [isAuthenticated, localLibrary, remoteLibrary, saveLibrary]);
 
   // --- remontée du profil : les mensurations, le reste vient du jeton
   useEffect(() => {

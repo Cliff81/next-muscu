@@ -1,3 +1,4 @@
+import { decideByTimestamp } from "@/lib/lastWrite";
 import type { Program } from "@/lib/types";
 
 export type RemoteProgram = { program: unknown; updatedAt: number } | null;
@@ -24,15 +25,12 @@ export function decideProgramSync(
   touchedAt: number,
   remote: RemoteProgram
 ): ProgramSyncDecision {
-  if (remote === null) {
-    // Rien là-bas : on envoie, sauf si rien n'a jamais été modifié ici.
-    return touchedAt > 0 ? { action: "push" } : { action: "none" };
-  }
-  if (remote.updatedAt > touchedAt) {
-    return { action: "pull", program: remote.program, updatedAt: remote.updatedAt };
-  }
-  if (touchedAt > remote.updatedAt && JSON.stringify(remote.program) !== JSON.stringify(local)) {
-    return { action: "push" };
-  }
-  return { action: "none" };
+  const decision = decideByTimestamp(
+    local,
+    touchedAt,
+    remote === null ? null : { value: remote.program, updatedAt: remote.updatedAt }
+  );
+  return decision.action === "pull"
+    ? { action: "pull", program: decision.value, updatedAt: decision.updatedAt }
+    : decision;
 }

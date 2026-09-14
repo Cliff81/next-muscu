@@ -94,6 +94,14 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_subject", ["subject"]),
 
+  /* Programmes gardés de côté. La table `programs` ne porte que celui qui est
+   * actif : l'archive a la sienne, arbitrée par date de modification. */
+  libraries: defineTable({
+    subject: v.string(),
+    entries: v.any(),
+    updatedAt: v.number(),
+  }).index("by_subject", ["subject"]),
+
   trophies: defineTable({
     subject: v.string(),
     entries: v.any(),

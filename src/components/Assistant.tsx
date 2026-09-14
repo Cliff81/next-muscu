@@ -32,6 +32,7 @@ import { archiveProgram, libraryStore, removeSaved, type SavedProgram } from "@/
 import { computeNeeds, GOALS, type Needs, type Goal } from "@/lib/nutrition";
 import { profileStore, type Experience, type Profile, type Sex } from "@/lib/profile";
 import { goalStore, programStore } from "@/lib/stores";
+import { notify } from "@/lib/toast";
 
 const LEVEL_FROM_EXPERIENCE: Record<Experience, Level> = {
   debutant: "beginner",
@@ -112,9 +113,14 @@ export function Assistant({ profile }: { profile: Profile }) {
           onRestore={(saved) => {
             // Le programme en cours est conservé lui aussi : on échange, on ne
             // perd rien.
-            archiveProgram(programStore.get());
+            const garde = archiveProgram(programStore.get());
             programStore.set(saved.program);
             finish();
+            notify(
+              garde
+                ? `« ${saved.name} » chargé. Ton programme précédent est gardé de côté.`
+                : `« ${saved.name} » chargé.`
+            );
           }}
           onBack={() => setStep("goal")}
         />
@@ -181,9 +187,14 @@ export function Assistant({ profile }: { profile: Profile }) {
           onConfirm={() => {
             // Le programme en cours est mis de côté avant d'être remplacé :
             // c'est le moment où il disparaissait sans retour possible.
-            archiveProgram(programStore.get());
+            const garde = archiveProgram(programStore.get());
             programStore.set(draftProgram);
             finish();
+            notify(
+              garde
+                ? "Programme enregistré. Le précédent est gardé dans « Mes programmes »."
+                : "Programme enregistré."
+            );
           }}
           onBack={() => {
             setDraftProgram(null);

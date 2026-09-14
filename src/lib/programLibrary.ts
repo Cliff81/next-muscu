@@ -8,12 +8,13 @@
  * essayer autre chose. Il est désormais mis de côté avant d'être remplacé, et
  * peut être repris.
  *
- * Volontairement local pour l'instant : la table Convex ne porte qu'un
- * programme actif par personne, et en ajouter une seconde pour l'archive est un
- * travail à part. La conséquence est dite à l'écran — cette bibliothèque ne
- * suit pas d'un appareil à l'autre.
+ * Elle suit d'un appareil à l'autre, dans sa propre table Convex : la table des
+ * programmes ne porte que celui qui est actif. L'arbitrage est celui du
+ * programme — la version la plus récemment modifiée gagne — car un programme
+ * gardé se renomme et se supprime, ce que l'union ne saurait pas propager.
  */
 import { createLocalStore } from "@/lib/createLocalStore";
+import { decideByTimestamp } from "@/lib/lastWrite";
 import { programSchema } from "@/lib/programSchema";
 import type { Program } from "@/lib/types";
 import { z } from "zod";
@@ -38,10 +39,60 @@ const savedSchema = z.array(
 /** Au-delà, les plus anciens cèdent : une archive sans fin n'est plus une archive. */
 const MAX = 10;
 
-export const libraryStore = createLocalStore<SavedProgram[]>("muscu:library", [], (value) => {
-  const r = savedSchema.safeParse(value);
-  return r.success ? (r.data as SavedProgram[]) : null;
-});
+/** Écarte les entrées illisibles au lieu de rejeter toute la bibliothèque. */
+export function parseLibrary(value: unknown): SavedProgram[] | null {
+  if (!Array.isArray(value)) return null;
+  return value.flatMap((entry) => {
+    const r = savedSchema.element.safeParse(entry);
+    return r.success ? [r.data as SavedProgram] : [];
+  });
+}
+
+export const libraryStore = createLocalStore<SavedProgram[]>("muscu:library", [], parseLibrary);
+
+export const libraryTouchedAt = createLocalStore<number>("muscu:libraryTouchedAt", 0);
+
+/**
+ * Toute écriture locale horodate la bibliothèque : c'est cet horodatage que
+ * l'arbitrage compare à celui du serveur.
+ */
+function write(list: SavedProgram[]): void {
+  libraryStore.set(list);
+  libraryTouchedAt.set(Date.now());
+}
+
+/** Écriture venue de Convex : ce n'est pas une modification locale. */
+export function setLibraryFromRemote(list: SavedProgram[], updatedAt: number): void {
+  libraryStore.set(list);
+  libraryTouchedAt.set(updatedAt);
+}
+
+/** Après une remontée réussie : on se cale sur l'heure du serveur. */
+export function markLibrarySynced(updatedAt: number): void {
+  libraryTouchedAt.set(updatedAt);
+}
+
+export type RemoteLibrary = { entries: unknown; updatedAt: number } | null;
+
+export type LibrarySyncDecision =
+  | { action: "pull"; entries: unknown; updatedAt: number }
+  | { action: "push" }
+  | { action: "none" };
+
+export function decideLibrarySync(
+  local: SavedProgram[],
+  touchedAt: number,
+  remote: RemoteLibrary
+): LibrarySyncDecision {
+  const decision = decideByTimestamp(
+    local,
+    touchedAt,
+    remote === null ? null : { value: remote.entries, updatedAt: remote.updatedAt }
+  );
+  return decision.action === "pull"
+    ? { action: "pull", entries: decision.value, updatedAt: decision.updatedAt }
+    : decision;
+}
 
 /** Nom lisible, déduit du programme lui-même. */
 export function defaultName(program: Program): string {
@@ -53,11 +104,14 @@ export function defaultName(program: Program): string {
 /**
  * Met un programme de côté. Sans effet s'il y est déjà à l'identique : relancer
  * l'assistant trois fois de suite n'a pas à produire trois copies du même.
+ *
+ * Rend `false` dans ce cas, pour que l'appelant puisse le dire plutôt que de
+ * laisser croire à un enregistrement.
  */
-export function archiveProgram(program: Program, name?: string): void {
+export function archiveProgram(program: Program, name?: string): boolean {
   const current = libraryStore.get();
   const signature = JSON.stringify(program);
-  if (current.some((s) => JSON.stringify(s.program) === signature)) return;
+  if (current.some((s) => JSON.stringify(s.program) === signature)) return false;
 
   const entry: SavedProgram = {
     id: `prog-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
@@ -65,15 +119,14 @@ export function archiveProgram(program: Program, name?: string): void {
     savedAt: new Date().toISOString(),
     program,
   };
-  libraryStore.set([entry, ...current].slice(0, MAX));
+  write([entry, ...current].slice(0, MAX));
+  return true;
 }
 
 export function removeSaved(id: string): void {
-  libraryStore.set(libraryStore.get().filter((s) => s.id !== id));
+  write(libraryStore.get().filter((s) => s.id !== id));
 }
 
 export function renameSaved(id: string, name: string): void {
-  libraryStore.set(
-    libraryStore.get().map((s) => (s.id === id ? { ...s, name: name.trim() || s.name } : s))
-  );
+  write(libraryStore.get().map((s) => (s.id === id ? { ...s, name: name.trim() || s.name } : s)));
 }

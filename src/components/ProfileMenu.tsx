@@ -4,7 +4,9 @@ import { useRef, useState } from "react";
 import { onboardingStore } from "@/lib/onboarding";
 import { profileStore, type Profile } from "@/lib/profile";
 import { confirmReset, exportProgram, importProgramFromFile } from "@/lib/programFile";
-import { archiveProgram } from "@/lib/programLibrary";
+import { archiveProgram, libraryStore } from "@/lib/programLibrary";
+import { LibraryPanel } from "@/components/LibraryPanel";
+import { notify } from "@/lib/toast";
 import { tokenStore } from "@/lib/googleToken";
 import { SyncStatus } from "@/components/SyncStatus";
 import { useProgram } from "@/lib/useProgram";
@@ -12,8 +14,10 @@ import { useProgram } from "@/lib/useProgram";
 /** Pastille de profil : programme, assistant et déconnexion. */
 export function ProfileMenu({ profile }: { profile: Profile }) {
   const [open, setOpen] = useState(false);
+  const [library, setLibrary] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const { program, setProgram, resetProgram } = useProgram();
+  const gardes = libraryStore.useValue();
 
   return (
     <>
@@ -63,10 +67,22 @@ export function ProfileMenu({ profile }: { profile: Profile }) {
             <Item
               onClick={() => {
                 setOpen(false);
-                archiveProgram(program);
+                notify(
+                  archiveProgram(program)
+                    ? `« ${program.title} » est gardé de côté. Tu le retrouveras dans « Mes programmes ».`
+                    : `« ${program.title} » est déjà dans ta bibliothèque.`
+                );
               }}
             >
               Garder ce programme de côté
+            </Item>
+            <Item
+              onClick={() => {
+                setOpen(false);
+                setLibrary(true);
+              }}
+            >
+              Mes programmes{gardes.length ? ` (${gardes.length})` : ""}
             </Item>
             <Item
               onClick={() => {
@@ -114,10 +130,17 @@ export function ProfileMenu({ profile }: { profile: Profile }) {
           e.target.value = "";
           if (!file) return;
           void importProgramFromFile(file).then((imported) => {
-            if (imported) setProgram(imported);
+            if (imported) {
+              // L'ancien est gardé avant d'être remplacé, comme partout
+              // ailleurs : un import ne doit pas être un aller sans retour.
+              archiveProgram(program);
+              setProgram(imported);
+              notify(`« ${imported.title} » importé. Ton programme précédent est gardé de côté.`);
+            }
           });
         }}
       />
+      {library ? <LibraryPanel onClose={() => setLibrary(false)} /> : null}
     </>
   );
 }

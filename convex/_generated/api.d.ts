@@ -9,6 +9,7 @@
  */
 
 import type * as identity from "../identity.js";
+import type * as libraries from "../libraries.js";
 import type * as outings from "../outings.js";
 import type * as profiles from "../profiles.js";
 import type * as programs from "../programs.js";
@@ -23,6 +24,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   identity: typeof identity;
+  libraries: typeof libraries;
   outings: typeof outings;
   profiles: typeof profiles;
   programs: typeof programs;
