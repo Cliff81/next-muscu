@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Assistant } from "@/components/Assistant";
 import { LogoTile } from "@/components/Logo";
@@ -14,11 +15,18 @@ import { googleConfigured, profileFromToken, profileStore, emptyProfile } from "
  *
  * Sans identifiant client Google configuré, on peut entrer sans compte : la
  * connexion se greffe quand elle est configurée, elle ne bloque pas l'usage.
+ *
+ * Un programme partagé échappe à la porte. Qui reçoit un QR vient voir ce
+ * qu'on lui a envoyé : lui demander de se connecter, puis de répondre à sept
+ * questions avant de l'afficher, c'est perdre la personne en route. La page
+ * n'a besoin d'aucun profil pour montrer un programme, ni pour le garder.
  */
 export function SignInGate({ children }: { children: React.ReactNode }) {
   const profile = profileStore.useValue();
   const onboardingDone = onboardingStore.useValue();
+  const path = usePathname();
 
+  if (path.startsWith("/p/")) return <>{children}</>;
   if (!profile) return <SignInScreen />;
   if (!onboardingDone) return <Assistant profile={profile} />;
   return <>{children}</>;
