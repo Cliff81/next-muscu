@@ -48,6 +48,17 @@ export const programStore = {
     programStoreRaw.set(value);
     programTouchedAt.set(updatedAt);
   },
+  /**
+   * Écriture automatique — reprise, rattachement au catalogue — qui ne vient
+   * pas d'un geste : l'horodatage ne bouge pas.
+   *
+   * Sans cette distinction, un appareil n'ayant que le programme par défaut
+   * l'enrichissait au chargement, se déclarait « modifié à l'instant », et
+   * écrasait dans Convex le vrai programme d'un autre appareil. C'est arrivé.
+   */
+  setDerived(value: Program) {
+    programStoreRaw.set(value);
+  },
   /** Après une remontée réussie : on se cale sur l'heure du serveur. */
   markSynced(updatedAt: number) {
     programTouchedAt.set(updatedAt);

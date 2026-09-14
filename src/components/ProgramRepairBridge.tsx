@@ -25,7 +25,7 @@ export function ProgramRepairBridge() {
         const current = programStore.get();
         const enriched = enrichWithCatalog(current, catalog);
         if (JSON.stringify(enriched) !== JSON.stringify(current)) {
-          programStore.set(enriched);
+          programStore.setDerived(enriched);
         }
       })
       .catch(() => {
