@@ -3,7 +3,22 @@
 import { useState } from "react";
 import { onboardingStore, FREQUENCIES, SESSION_TIMES, type Step } from "@/lib/onboarding";
 import { loadCatalog, type Level } from "@/lib/catalog";
-import { generateProgram, PROGRAM_TYPES, type Place, type ProgramType } from "@/lib/generateProgram";
+import {
+  generateProgram,
+  MUSCLE_GROUPS,
+  PROGRAM_TYPES,
+  type Place,
+  type ProgramType,
+} from "@/lib/generateProgram";
+import {
+  MAX_EXERCISES,
+  MIN_EXERCISES,
+  draftTitle,
+  draftsReady,
+  emptyDrafts,
+  toTemplate,
+  type DayDraft,
+} from "@/lib/customProgram";
 import { SUPPORTS, type Support } from "@/lib/homeTraining";
 import { PAIN_AREAS, type PainArea } from "@/lib/painAreas";
 import { archiveProgram, libraryStore, removeSaved, type SavedProgram } from "@/lib/programLibrary";
@@ -24,13 +39,22 @@ export function Assistant({ profile }: { profile: Profile }) {
   const [supports, setSupports] = useState<Support[]>([]);
   const [painAreas, setPainAreas] = useState<PainArea[]>([]);
   const [minutesPerSession, setMinutes] = useState(60);
+  const [drafts, setDrafts] = useState<DayDraft[]>([]);
+  const [dayIndex, setDayIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [needs, setNeeds] = useState<Needs | null>(null);
 
   const finish = () => onboardingStore.set(true);
 
-  const build = async (type: ProgramType) => {
+  /**
+   * Construit et installe le programme.
+   *
+   * `plan` n'est fourni que par la construction pas à pas : sans lui, le
+   * découpage vient du type choisi. Tout le reste — matériel, douleurs, temps
+   * disponible — s'applique dans les deux cas, c'est le même moteur.
+   */
+  const build = async (type: ProgramType, plan?: DayDraft[]) => {
     setBusy(true);
     setError(null);
     try {
@@ -50,6 +74,8 @@ export function Assistant({ profile }: { profile: Profile }) {
           supports,
           painAreas,
           minutesPerSession,
+          rotation: plan?.map(toTemplate),
+          title: plan ? "Sur mesure" : undefined,
         })
       );
       finish();
@@ -112,16 +138,40 @@ export function Assistant({ profile }: { profile: Profile }) {
         <StepTime
           value={minutesPerSession}
           onChange={setMinutes}
-          onNext={() => setStep("type")}
+          onNext={() => setStep("build")}
           onBack={() => setStep("frequency")}
+        />
+      ) : step === "build" ? (
+        <StepBuild
+          frequency={frequency}
+          onAuto={() => setStep("type")}
+          onManual={() => {
+            setDrafts(emptyDrafts(frequency, minutesPerSession));
+            setDayIndex(0);
+            setStep("days");
+          }}
+          onBack={() => setStep("time")}
+        />
+      ) : step === "days" ? (
+        <StepDays
+          drafts={drafts}
+          index={dayIndex}
+          busy={busy}
+          error={error}
+          onChange={(draft) =>
+            setDrafts((liste) => liste.map((d, i) => (i === dayIndex ? draft : d)))
+          }
+          onPrevious={() => (dayIndex === 0 ? setStep("build") : setDayIndex(dayIndex - 1))}
+          onNext={() => setDayIndex(dayIndex + 1)}
+          onFinish={() => void build("split", drafts)}
         />
       ) : step === "type" ? (
         <StepType
           frequency={frequency}
           busy={busy}
           error={error}
-          onChoose={build}
-          onBack={() => setStep("time")}
+          onChoose={(type) => void build(type)}
+          onBack={() => setStep("build")}
         />
       ) : (
         <StepNutrition
@@ -137,10 +187,14 @@ export function Assistant({ profile }: { profile: Profile }) {
   );
 }
 
-const ORDER: Step[] = ["you", "goal", "place", "pain", "frequency", "time", "type"];
+const ORDER: Step[] = ["you", "goal", "place", "pain", "frequency", "time", "build"];
 
 function Frame({ step, children }: { step: Step; children: React.ReactNode }) {
   const index = ORDER.indexOf(step);
+  // Les écrans qui prolongent la septième étape — découpage, journées composées
+  // à la main, nutrition — n'y figurent pas : la barre y reste pleine plutôt
+  // que de se vider d'un coup.
+  const atteint = index >= 0 ? index : ORDER.length - 1;
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center px-6 py-10">
       <div className="mb-4 flex gap-1.5">
@@ -148,7 +202,7 @@ function Frame({ step, children }: { step: Step; children: React.ReactNode }) {
           <span
             key={e}
             className={`h-1 flex-1 rounded-full transition ${
-              index >= 0 && i <= index ? "bg-accent" : "bg-surface2"
+              i <= atteint ? "bg-accent" : "bg-surface2"
             }`}
           />
         ))}
@@ -763,7 +817,7 @@ function StepType({
 
   return (
     <>
-      <Heading eyebrow="Étape 7 sur 7">Quel type de programme ?</Heading>
+      <Heading eyebrow="Programme par défaut">Quel découpage ?</Heading>
       <p className="mt-3 text-sm text-muted">
         Adaptés à {frequency} séance{frequency > 1 ? "s" : ""} par semaine :
       </p>
@@ -775,14 +829,14 @@ function StepType({
       {others.length ? (
         <>
           <p className="mt-5 text-xs text-muted">
-            Possibles, mais mieux adaptés à un autre toNumber de séances :
+            Possibles, mais mieux adaptés à un autre nombre de séances :
           </p>
           <div className="mt-2 flex flex-col gap-2 opacity-60">
             {others.map((t) => (
               <OptionCard
                 key={t.id}
                 title={t.name}
-                summary={`${t.summary} — conçu pour ${t.days.join(", ")} days`}
+                summary={`${t.summary} — conçu pour ${t.days.join(", ")} jours`}
                 onClick={() => onChoose(t.id)}
               />
             ))}
@@ -791,8 +845,197 @@ function StepType({
       ) : null}
       {busy ? <p className="mt-4 text-sm text-muted">Construction du programme…</p> : null}
       {error ? <p className="mt-4 text-sm text-accent2">{error}</p> : null}
-      <LinkButton onClick={onBack}>← Changer la fréquence</LinkButton>
+      <LinkButton onClick={onBack}>← Revenir au choix de construction</LinkButton>
     </>
+  );
+}
+
+/* ------------------------------------------------------- pas à pas */
+
+function StepBuild({
+  frequency,
+  onAuto,
+  onManual,
+  onBack,
+}: {
+  frequency: number;
+  onAuto: () => void;
+  onManual: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <>
+      <Heading eyebrow="Étape 7 sur 7">Comment on le construit ?</Heading>
+      <p className="mt-3 text-sm text-muted">
+        Dans les deux cas, c&apos;est moi qui choisis les mouvements — en tenant
+        compte de ton matériel, de tes douleurs et de ton temps. La différence
+        est de savoir qui dessine le découpage.
+      </p>
+      <div className="mt-5 flex flex-col gap-2">
+        <OptionCard
+          title="Programme par défaut"
+          summary={`Tu choisis un découpage éprouvé — full body, haut/bas, push pull legs — et je remplis les ${frequency} journées.`}
+          onClick={onAuto}
+        />
+        <OptionCard
+          title="Pas à pas"
+          summary="Tu composes chaque journée : les groupes musculaires et le nombre d'exercices. Plus long, mais c'est ton programme."
+          onClick={onManual}
+        />
+      </div>
+      <p className="mt-4 text-[0.75rem] text-muted">
+        Rien n&apos;est figé : chaque exercice reste échangeable, et les journées
+        se modifient ensuite depuis le programme.
+      </p>
+      <LinkButton onClick={onBack}>← Changer le temps disponible</LinkButton>
+    </>
+  );
+}
+
+function StepDays({
+  drafts,
+  index,
+  busy,
+  error,
+  onChange,
+  onPrevious,
+  onNext,
+  onFinish,
+}: {
+  drafts: DayDraft[];
+  index: number;
+  busy: boolean;
+  error: string | null;
+  onChange: (draft: DayDraft) => void;
+  onPrevious: () => void;
+  onNext: () => void;
+  onFinish: () => void;
+}) {
+  const draft = drafts[index];
+  if (!draft) return null;
+
+  const derniere = index === drafts.length - 1;
+  const pret = draft.groups.length > 0;
+
+  const basculer = (id: string) =>
+    onChange({
+      ...draft,
+      groups: draft.groups.includes(id)
+        ? draft.groups.filter((g) => g !== id)
+        : [...draft.groups, id],
+    });
+
+  return (
+    <>
+      <Heading eyebrow={`Journée ${index + 1} sur ${drafts.length}`}>
+        {draftTitle(draft, index)}
+      </Heading>
+      <p className="mt-3 text-sm text-muted">
+        Coche les groupes travaillés ce jour-là. L&apos;ordre compte : les
+        premiers cochés reçoivent le plus d&apos;exercices.
+      </p>
+
+      <div className="mt-5 flex flex-wrap gap-1.5">
+        {MUSCLE_GROUPS.map((groupe) => (
+          <Chip
+            key={groupe.id}
+            active={draft.groups.includes(groupe.id)}
+            onClick={() => basculer(groupe.id)}
+          >
+            {groupe.name}
+          </Chip>
+        ))}
+      </div>
+
+      <label className="mt-5 block text-[0.7rem] tracking-[0.1em] text-muted uppercase">
+        Nom de la journée
+        <input
+          type="text"
+          value={draft.title}
+          placeholder={draftTitle(draft, index)}
+          onChange={(e) => onChange({ ...draft, title: e.target.value })}
+          className="mt-1 w-full rounded-md border border-border bg-surface2 px-3 py-2 text-sm normal-case text-text focus:border-accent focus:outline-none"
+        />
+      </label>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <span className="text-[0.8rem] text-muted">Exercices dans la séance</span>
+        <div className="flex items-center gap-2">
+          <Compteur
+            label="Un exercice de moins"
+            disabled={draft.count <= MIN_EXERCISES}
+            onClick={() => onChange({ ...draft, count: draft.count - 1 })}
+          >
+            −
+          </Compteur>
+          <span className="font-display w-8 text-center text-2xl text-accent">{draft.count}</span>
+          <Compteur
+            label="Un exercice de plus"
+            disabled={draft.count >= MAX_EXERCISES}
+            onClick={() => onChange({ ...draft, count: draft.count + 1 })}
+          >
+            +
+          </Compteur>
+        </div>
+      </div>
+      <p className="mt-1 text-[0.75rem] text-muted">
+        Une séance plus longue que le temps annoncé sera ramenée à ce qui tient
+        dedans — et te le dira.
+      </p>
+
+      {drafts.some((d, i) => i !== index && d.groups.length > 0) && (
+        <ul className="mt-5 flex flex-col gap-1">
+          {drafts.map((d, i) =>
+            i === index || !d.groups.length ? null : (
+              <li key={i} className="text-[0.75rem] text-muted">
+                <span className="text-accent">J{i + 1}</span> {draftTitle(d, i)} · {d.count} exercices
+              </li>
+            )
+          )}
+        </ul>
+      )}
+
+      <PrimaryButton
+        onClick={derniere ? onFinish : onNext}
+        disabled={!pret || busy || (derniere && !draftsReady(drafts))}
+      >
+        {derniere ? "Construire le programme" : "Journée suivante →"}
+      </PrimaryButton>
+      {!pret && (
+        <p className="mt-2 text-center text-[0.75rem] text-muted">
+          Choisis au moins un groupe musculaire.
+        </p>
+      )}
+      {busy ? <p className="mt-4 text-sm text-muted">Construction du programme…</p> : null}
+      {error ? <p className="mt-4 text-sm text-accent2">{error}</p> : null}
+      <LinkButton onClick={onPrevious}>
+        {index === 0 ? "← Revenir au choix de construction" : `← Journée ${index}`}
+      </LinkButton>
+    </>
+  );
+}
+
+function Compteur({
+  children,
+  label,
+  disabled,
+  onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className="size-9 rounded-full border border-border text-lg text-muted transition hover:border-accent hover:text-accent disabled:opacity-30"
+    >
+      {children}
+    </button>
   );
 }
 

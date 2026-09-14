@@ -13,7 +13,9 @@ export type Step =
   | "pain"
   | "frequency"
   | "time"
+  | "build"
   | "type"
+  | "days"
   | "nutrition";
 
 /**

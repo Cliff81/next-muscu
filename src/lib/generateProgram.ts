@@ -59,7 +59,7 @@ export const PROGRAM_TYPES: { id: ProgramType; name: string; summary: string; da
 ];
 
 type SectionTemplate = { title: string; muscles: Muscle[]; count: number };
-type DayTemplate = { title: string; description: string; sections: SectionTemplate[] };
+export type DayTemplate = { title: string; description: string; sections: SectionTemplate[] };
 
 const UPPER: SectionTemplate[] = [
   { title: "Pectoraux", muscles: ["chest"], count: 2 },
@@ -277,6 +277,15 @@ export type Answers = {
   frequency: number;
   type: ProgramType;
   level: Level;
+  /**
+   * Plan des journées, quand la personne l'a dessiné elle-même. Sans lui, le
+   * plan vient du type de programme choisi. Tout le reste — sélection des
+   * mouvements, rognage au temps disponible, mise à l'écart des douleurs — ne
+   * change pas : c'est le même moteur, avec un plan d'origine différente.
+   */
+  rotation?: DayTemplate[];
+  /** Nom du programme, quand il ne vient pas du type choisi. */
+  title?: string;
   /** En salle par défaut : c'est le cas d'origine. */
   place?: Place;
   /** Mobilier et matériel disponibles à la maison. */
@@ -286,6 +295,28 @@ export type Answers = {
   /** Temps disponible par séance, en minutes. Les séances y sont ramenées. */
   minutesPerSession?: number;
 };
+
+/**
+ * Groupes musculaires proposés quand on dessine soi-même ses journées.
+ *
+ * Regroupés par usage plutôt que par anatomie : personne ne planifie « grand
+ * dorsal » et « milieu du dos » séparément, mais tout le monde planifie « dos ».
+ */
+export const MUSCLE_GROUPS: { id: string; name: string; muscles: Muscle[] }[] = [
+  { id: "chest", name: "Pectoraux", muscles: ["chest"] },
+  { id: "back", name: "Dos", muscles: ["lats", "middle back"] },
+  { id: "shoulders", name: "Épaules", muscles: ["shoulders"] },
+  { id: "biceps", name: "Biceps", muscles: ["biceps"] },
+  { id: "triceps", name: "Triceps", muscles: ["triceps"] },
+  { id: "quadriceps", name: "Quadriceps", muscles: ["quadriceps"] },
+  { id: "hamstrings", name: "Ischio-jambiers", muscles: ["hamstrings"] },
+  { id: "glutes", name: "Fessiers", muscles: ["glutes"] },
+  { id: "calves", name: "Mollets", muscles: ["calves"] },
+  { id: "abs", name: "Abdominaux", muscles: ["abdominals"] },
+  { id: "traps", name: "Trapèzes", muscles: ["traps"] },
+  { id: "lowerback", name: "Lombaires", muscles: ["lower back"] },
+  { id: "forearms", name: "Avant-bras", muscles: ["forearms"] },
+];
 
 export function setsAndReps(
   type: ProgramType,
@@ -360,7 +391,12 @@ export function generateProgram(
     painAreas = [],
     minutesPerSession,
   } = answers;
-  const rotation = place === "home" ? HOME_ROTATIONS[type] : ROTATIONS[type];
+  const rotation = answers.rotation?.length
+    ? answers.rotation
+    : place === "home"
+      ? HOME_ROTATIONS[type]
+      : ROTATIONS[type];
+  const surMesure = Boolean(answers.rotation?.length);
   const used = new Set<string>();
 
   const emphasis = type === "endurance" ? ("endurance" as const) : ("strength" as const);
@@ -616,9 +652,9 @@ export function generateProgram(
         : type === "endurance"
           ? "Endurance — condition physique"
           : "Renforcement — hypertrophie",
-    title: typeName,
+    title: answers.title?.trim() || typeName,
     titleAccent: `${frequency} jour${frequency > 1 ? "s" : ""}`,
-    subtitle: `Programme généré · ${frequency} séance${frequency > 1 ? "s" : ""} par semaine`,
+    subtitle: `${surMesure ? "Programme sur mesure" : "Programme généré"} · ${frequency} séance${frequency > 1 ? "s" : ""} par semaine`,
     statsRow: [
       { value: String(frequency), label: "Séances/sem" },
       { value: String(7 - frequency), label: "Jours off" },
