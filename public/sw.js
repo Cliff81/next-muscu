@@ -11,7 +11,7 @@
  * Écrit à la main et servi tel quel : pas d'étape de compilation à ajouter.
  */
 
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL = `stronger-shell-${VERSION}`;
 const ASSETS = `stronger-assets-${VERSION}`;
 const DATA = `stronger-data-${VERSION}`;
@@ -19,6 +19,9 @@ const DATA = `stronger-data-${VERSION}`;
 // versions, sinon chaque déploiement obligerait à les retélécharger.
 const PHOTOS = "stronger-photos";
 const PHOTOS_MAX = 300;
+// Les fragments Next portent un condensé : ceux des anciens déploiements ne
+// servent plus mais restent en cache. On borne, faute de savoir lesquels.
+const ASSETS_MAX = 200;
 
 const CURRENT = [SHELL, ASSETS, DATA, PHOTOS];
 const PHOTO_ORIGIN = "https://cdn.jsdelivr.net";
@@ -78,12 +81,15 @@ async function networkFirst(request) {
 }
 
 /** Cache d'abord : réservé aux ressources dont l'URL change quand le contenu change. */
-async function cacheFirst(request, nomCache) {
+async function cacheFirst(request, nomCache, max) {
   const cache = await caches.open(nomCache);
   const cached = await cache.match(request);
   if (cached) return cached;
   const response = await fetch(request);
-  if (response.ok) cache.put(request, response.clone());
+  if (response.ok) {
+    await cache.put(request, response.clone());
+    if (max) void trim(cache, max);
+  }
   return response;
 }
 
@@ -117,7 +123,7 @@ async function photoFirst(request) {
     const response = await fetch(new Request(request.url, { mode: "cors", credentials: "omit" }));
     if (response.ok) {
       await cache.put(request.url, response.clone());
-      void trimPhotos(cache);
+      void trim(cache, PHOTOS_MAX);
     }
     return response;
   } catch {
@@ -125,11 +131,11 @@ async function photoFirst(request) {
   }
 }
 
-/** Le catalogue compte 1 746 photos : on borne le cache aux plus récemment vues. */
-async function trimPhotos(cache) {
+/** Borne un cache aux entrées les plus récemment ajoutées. */
+async function trim(cache, max) {
   const cles = await cache.keys();
-  if (cles.length <= PHOTOS_MAX) return;
-  await Promise.all(cles.slice(0, cles.length - PHOTOS_MAX).map((cle) => cache.delete(cle)));
+  if (cles.length <= max) return;
+  await Promise.all(cles.slice(0, cles.length - max).map((cle) => cache.delete(cle)));
 }
 
 /*
@@ -177,7 +183,7 @@ self.addEventListener("fetch", (event) => {
   }
   // Fragments Next : le nom contient un condensé, le contenu ne bouge jamais.
   if (url.pathname.startsWith("/_next/static/")) {
-    event.respondWith(cacheFirst(request, ASSETS));
+    event.respondWith(cacheFirst(request, ASSETS, ASSETS_MAX));
     return;
   }
   event.respondWith(staleWhileRevalidate(request, DATA));
