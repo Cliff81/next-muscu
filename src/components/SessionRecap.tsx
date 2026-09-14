@@ -15,7 +15,7 @@ import {
 } from "@/lib/achievements";
 import { decimal } from "@/lib/format";
 import { profileStore } from "@/lib/profile";
-import { outingsStore, trophyStore } from "@/lib/stores";
+import { outingsStore, trophyStore, weightsStore } from "@/lib/stores";
 import { formatDuration, sessionProgress } from "@/lib/session";
 import { useHistory } from "@/lib/useHistory";
 import type { SessionLog } from "@/lib/types";
@@ -33,6 +33,7 @@ export function SessionRecap({ log }: { log: SessionLog }) {
   const poids = profile?.weightKg ?? null;
   const graves = trophyStore.useValue();
   const sorties = outingsStore.useValue();
+  const pesees = weightsStore.useValue();
 
   // Le décompte d'une seule séance : le même calcul que pour l'historique,
   // appliqué à un unique journal.
@@ -43,8 +44,8 @@ export function SessionRecap({ log }: { log: SessionLog }) {
   }, [log, poids]);
 
   const etats = useMemo(
-    () => evaluateLadders(history, poids, graves, sorties),
-    [history, poids, graves, sorties]
+    () => evaluateLadders(history, poids, graves, sorties, pesees),
+    [history, poids, graves, sorties, pesees]
   );
   const nouveaux = useMemo(
     () => (log.finishedAt ? tiersUnlockedBy(etats, log.finishedAt) : []),

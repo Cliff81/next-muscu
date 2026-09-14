@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Achievements } from "@/components/Achievements";
+import { BodyWeightSection } from "@/components/BodyWeightSection";
 import { WeightChart } from "@/components/WeightChart";
 import { bestOneRepMax, distinctExerciseNames, weightProgressionFor } from "@/lib/progressData";
 import { kilos } from "@/lib/format";
@@ -137,6 +138,8 @@ export default function ProgressPage() {
           </section>
         </>
       )}
+
+      <BodyWeightSection />
 
       <Achievements history={history} />
     </div>

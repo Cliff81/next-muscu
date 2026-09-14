@@ -112,6 +112,14 @@ export default defineSchema({
     .index("by_code", ["code"])
     .index("by_subject", ["subject"]),
 
+  /* Pesées : un journal par personne, arbitré par date de modification — une
+   * pesée se corrige et se supprime. */
+  weights: defineTable({
+    subject: v.string(),
+    entries: v.any(),
+    updatedAt: v.number(),
+  }).index("by_subject", ["subject"]),
+
   /* Programmes gardés de côté. La table `programs` ne porte que celui qui est
    * actif : l'archive a la sienne, arbitrée par date de modification. */
   libraries: defineTable({

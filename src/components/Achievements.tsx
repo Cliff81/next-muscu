@@ -13,7 +13,7 @@ import {
   type LadderProgress,
 } from "@/lib/achievements";
 import { profileStore } from "@/lib/profile";
-import { outingsStore, trophyStore } from "@/lib/stores";
+import { outingsStore, trophyStore, weightsStore } from "@/lib/stores";
 import type { SessionLog } from "@/lib/types";
 
 const FAMILIES: Family[] = ["assiduite", "volume", "force", "endurance", "rigueur"];
@@ -33,10 +33,11 @@ export function Achievements({ history }: { history: SessionLog[] }) {
   const poids = profile?.weightKg ?? null;
   const graves = trophyStore.useValue();
   const sorties = outingsStore.useValue();
+  const pesees = weightsStore.useValue();
 
   const etats = useMemo(
-    () => evaluateLadders(history, poids, graves, sorties),
-    [history, poids, graves, sorties]
+    () => evaluateLadders(history, poids, graves, sorties, pesees),
+    [history, poids, graves, sorties, pesees]
   );
   const derniere = useMemo(() => {
     const finies = history.filter((s) => s.finishedAt !== null).map((s) => s.finishedAt as string);

@@ -15,6 +15,7 @@ import type * as profiles from "../profiles.js";
 import type * as programs from "../programs.js";
 import type * as shares from "../shares.js";
 import type * as trophies from "../trophies.js";
+import type * as weights from "../weights.js";
 import type * as workouts from "../workouts.js";
 
 import type {
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   programs: typeof programs;
   shares: typeof shares;
   trophies: typeof trophies;
+  weights: typeof weights;
   workouts: typeof workouts;
 }>;
 

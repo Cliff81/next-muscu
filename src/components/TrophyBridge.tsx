@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { derivedUnlocks } from "@/lib/achievements";
 import { profileStore } from "@/lib/profile";
-import { historyStore, outingsStore, trophyStore } from "@/lib/stores";
+import { historyStore, outingsStore, trophyStore, weightsStore } from "@/lib/stores";
 import { mergeEngraved, sameEngraved } from "@/lib/trophies";
 
 /**
@@ -19,12 +19,13 @@ export function TrophyBridge() {
   const profile = profileStore.useValue();
   const poids = profile?.weightKg ?? null;
   const sorties = outingsStore.useValue();
+  const pesees = weightsStore.useValue();
 
   useEffect(() => {
     const registre = trophyStore.get();
-    const fusion = mergeEngraved(registre, derivedUnlocks(history, poids, sorties));
+    const fusion = mergeEngraved(registre, derivedUnlocks(history, poids, sorties, pesees));
     if (!sameEngraved(registre, fusion)) trophyStore.set(fusion);
-  }, [history, poids, sorties]);
+  }, [history, poids, sorties, pesees]);
 
   return null;
 }

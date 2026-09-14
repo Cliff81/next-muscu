@@ -6,6 +6,7 @@ import { NEAT_LEVELS, type Activity, type NeatLevel } from "@/lib/activities";
 import { createLocalStore } from "@/lib/createLocalStore";
 import { programSchema } from "@/lib/programSchema";
 import { repairStrings } from "@/lib/repairProgram";
+import { parseWeights, type WeightEntry } from "@/lib/bodyWeight";
 import { parseOutings, type Outing } from "@/lib/outings";
 import { DEFAULT_SETTINGS, parseSettings, type Settings } from "@/lib/settings";
 import { parseEngraved, type Engraved } from "@/lib/trophies";
@@ -107,6 +108,26 @@ export const outingsStore = {
   },
   markSynced(updatedAt: number) {
     outingsTouchedAt.set(updatedAt);
+  },
+};
+
+const weightsRaw = createLocalStore<WeightEntry[]>("muscu:bodyWeight", [], parseWeights);
+export const weightsTouchedAt = createLocalStore<number>("muscu:bodyWeightTouchedAt", 0);
+
+/** Journal du poids de corps — voir `bodyWeight.ts`. Horodaté comme le programme. */
+export const weightsStore = {
+  useValue: weightsRaw.useValue,
+  get: weightsRaw.get,
+  set(value: WeightEntry[]) {
+    weightsRaw.set(value);
+    weightsTouchedAt.set(Date.now());
+  },
+  setFromRemote(value: WeightEntry[], updatedAt: number) {
+    weightsRaw.set(value);
+    weightsTouchedAt.set(updatedAt);
+  },
+  markSynced(updatedAt: number) {
+    weightsTouchedAt.set(updatedAt);
   },
 };
 

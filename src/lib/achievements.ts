@@ -1,3 +1,4 @@
+import type { WeightEntry } from "@/lib/bodyWeight";
 import { ON_FOOT, ON_WHEELS, type Outing } from "@/lib/outings";
 import { mergeEngraved, trophyKey, type Engraved } from "@/lib/trophies";
 import type { SessionLog } from "@/lib/types";
@@ -55,6 +56,12 @@ export type Tally = {
   records: Map<string, number>;
   recordsBattus: number;
   chargeMax: number;
+  /**
+   * Meilleure charge rapportée au poids de corps **du moment** (1 = son poids).
+   * Prise à l'instant de la série, et non recalculée avec le poids
+   * d'aujourd'hui : perdre dix kilos ne fait pas soulever plus.
+   */
+  meilleurePart: number;
   seancesCompletes: number;
   plusLongueSeance: number;
   /** Temps cumulé sous la barre, en secondes. */
@@ -114,6 +121,7 @@ export function emptyTally(weightKg: number | null = null): Tally {
     records: new Map(),
     recordsBattus: 0,
     chargeMax: 0,
+    meilleurePart: 0,
     seancesCompletes: 0,
     plusLongueSeance: 0,
     tempsTotal: 0,
@@ -178,6 +186,9 @@ export function addSession(tally: Tally, log: SessionLog): void {
         tally.recordsBattus++;
       }
       tally.chargeMax = Math.max(tally.chargeMax, meilleure);
+      if (tally.weightKg && tally.weightKg > 0) {
+        tally.meilleurePart = Math.max(tally.meilleurePart, meilleure / tally.weightKg);
+      }
     }
     tally.exercices.add(exercice.exerciseName);
     const passages = (tally.passages.get(exercice.exerciseName) ?? 0) + 1;
@@ -257,9 +268,8 @@ export function addOuting(tally: Tally, outing: Outing): void {
 const anciennete = (t: Tally): number =>
   t.premierJour && t.dernierJour ? joursEntre(t.premierJour, t.dernierJour) + 1 : 0;
 
-/** Part du poids de corps atteinte sur un mouvement, en pourcentage. */
-const partDuPoids = (t: Tally): number =>
-  t.weightKg && t.weightKg > 0 ? (t.chargeMax / t.weightKg) * 100 : 0;
+/** Meilleure part du poids de corps soulevée, en pourcentage. */
+const partDuPoids = (t: Tally): number => Math.round(t.meilleurePart * 1000) / 10;
 
 export const LADDERS: Ladder[] = [
   // --- assiduité
@@ -280,7 +290,7 @@ export const LADDERS: Ladder[] = [
   // --- force
   { id: "charge", name: "Charge sur une série", description: "Le plus lourd que tu aies soulevé", icon: "💥", family: "force", unit: "kg", tiers: [20, 40, 60, 80, 100, 120, 150, 200], measure: (t) => t.chargeMax },
   { id: "records", name: "Records battus", description: "Chaque fois que tu dépasses ta charge sur un mouvement", icon: "📈", family: "force", unit: "records", tiers: [1, 10, 25, 50, 100], measure: (t) => t.recordsBattus },
-  { id: "poids-corps", name: "Part du poids de corps", description: "Ta charge maximale rapportée à ton poids", icon: "⚖️", family: "force", unit: "%", tiers: [50, 100, 150, 200], measure: partDuPoids },
+  { id: "poids-corps", name: "Part du poids de corps", description: "Ta meilleure charge rapportée à ton poids du jour", icon: "⚖️", family: "force", unit: "%", tiers: [50, 100, 150, 200], measure: partDuPoids },
 
   // --- rigueur
   { id: "sans-faute", name: "Séances sans faute", description: "Toutes les séries cochées, sans exception", icon: "✅", family: "rigueur", unit: "séances", tiers: [1, 10, 25, 50], measure: (t) => t.seancesCompletes },
@@ -397,7 +407,7 @@ type Evenement = { at: string; apply: (tally: Tally) => void };
  * Les deux nourrissent les mêmes compteurs : les mélanger dans l'ordre est ce
  * qui donne des suites de jours justes et des dates de palier exactes.
  */
-function evenements(history: SessionLog[], outings: Outing[]): Evenement[] {
+function evenements(history: SessionLog[], outings: Outing[], weights: WeightEntry[]): Evenement[] {
   const seances: Evenement[] = history
     .filter((s) => s.finishedAt !== null)
     .map((s) => ({ at: s.finishedAt as string, apply: (t: Tally) => addSession(t, s) }));
@@ -405,18 +415,29 @@ function evenements(history: SessionLog[], outings: Outing[]): Evenement[] {
     at: `${o.date}T12:00:00.000`,
     apply: (t: Tally) => addOuting(t, o),
   }));
-  return [...seances, ...sorties].sort((a, b) => a.at.localeCompare(b.at));
+  // Une pesée change le poids de référence pour tout ce qui suit : la part du
+  // poids de corps se calcule avec le poids de l'époque, pas celui d'aujourd'hui.
+  // Placée au matin, avant les séances du jour.
+  const pesees: Evenement[] = weights.map((w) => ({
+    at: `${w.date}T06:00:00.000`,
+    apply: (t: Tally) => {
+      t.weightKg = w.kg;
+    },
+  }));
+  return [...seances, ...sorties, ...pesees].sort((a, b) => a.at.localeCompare(b.at));
 }
 
 export function derivedUnlocks(
   history: SessionLog[],
   weightKg: number | null = null,
-  outings: Outing[] = []
+  outings: Outing[] = [],
+  weights: WeightEntry[] = []
 ): Engraved {
+  // Le poids du profil sert de départ, avant la première pesée du journal.
   const tally = emptyTally(weightKg);
   const dates: Engraved = {};
 
-  for (const evenement of evenements(history, outings)) {
+  for (const evenement of evenements(history, outings, weights)) {
     evenement.apply(tally);
     for (const echelle of LADDERS) {
       const atteint = echelle.measure(tally);
@@ -442,12 +463,13 @@ export function evaluateLadders(
   history: SessionLog[],
   weightKg: number | null = null,
   engraved: Engraved = {},
-  outings: Outing[] = []
+  outings: Outing[] = [],
+  weights: WeightEntry[] = []
 ): LadderProgress[] {
-  const dates = mergeEngraved(engraved, derivedUnlocks(history, weightKg, outings));
+  const dates = mergeEngraved(engraved, derivedUnlocks(history, weightKg, outings, weights));
 
   const tally = emptyTally(weightKg);
-  for (const evenement of evenements(history, outings)) evenement.apply(tally);
+  for (const evenement of evenements(history, outings, weights)) evenement.apply(tally);
 
   return LADDERS.map((ladder) => {
     const unlockedAt = ladder.tiers.map((_, i) => dates[trophyKey(ladder.id, i)] ?? null);

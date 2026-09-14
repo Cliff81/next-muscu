@@ -11,6 +11,7 @@ import type { Activity, NeatLevel } from "@/lib/activities";
 import { NEAT_LEVELS } from "@/lib/activities";
 import { GOALS, type Goal } from "@/lib/nutrition";
 import { decideProgramSync } from "@/lib/mergeProgram";
+import { decideWeightsSync, parseWeights } from "@/lib/bodyWeight";
 import { decideOutingsSync, parseOutings } from "@/lib/outings";
 import {
   decideLibrarySync,
@@ -36,6 +37,8 @@ import {
   seedProgramTimestamp,
   settingsStore,
   trophyStore,
+  weightsStore,
+  weightsTouchedAt,
 } from "@/lib/stores";
 import type { Program, SessionLog } from "@/lib/types";
 
@@ -62,6 +65,7 @@ export function useSync(): void {
   const remoteTrophies = useQuery(api.trophies.get, isAuthenticated ? {} : "skip");
   const remoteOutings = useQuery(api.outings.get, isAuthenticated ? {} : "skip");
   const remoteLibrary = useQuery(api.libraries.get, isAuthenticated ? {} : "skip");
+  const remoteWeights = useQuery(api.weights.get, isAuthenticated ? {} : "skip");
   const saveProgram = useMutation(api.programs.save);
   const saveProfile = useMutation(api.profiles.save);
   const saveWorkout = useMutation(api.workouts.save);
@@ -69,6 +73,7 @@ export function useSync(): void {
   const mergeTrophies = useMutation(api.trophies.merge);
   const saveOutings = useMutation(api.outings.save);
   const saveLibrary = useMutation(api.libraries.save);
+  const saveWeights = useMutation(api.weights.save);
 
   const localProgram = programStore.useValue();
   const localProfile = profileStore.useValue();
@@ -81,6 +86,7 @@ export function useSync(): void {
   const localTrophies = trophyStore.useValue();
   const localOutings = outingsStore.useValue();
   const localLibrary = libraryStore.useValue();
+  const localWeights = weightsStore.useValue();
 
   // Les installations d'avant l'horodatage déclarent leur programme récent,
   // une fois, pour qu'il remonte au lieu d'être écrasé. Dans un effet : écrire
@@ -248,6 +254,23 @@ export function useSync(): void {
         });
     }
   }, [isAuthenticated, localLibrary, remoteLibrary, saveLibrary]);
+
+  // --- pesées : arbitrage par date, comme le programme
+  useEffect(() => {
+    if (!isAuthenticated || remoteWeights === undefined) return;
+    const decision = decideWeightsSync(localWeights, weightsTouchedAt.get(), remoteWeights);
+    if (decision.action === "pull") {
+      weightsStore.setFromRemote(parseWeights(decision.entries) ?? [], decision.updatedAt);
+      return;
+    }
+    if (decision.action === "push") {
+      void saveWeights({ entries: localWeights })
+        .then((r) => weightsStore.markSynced(r.updatedAt))
+        .catch(() => {
+          // Hors ligne : on retentera au prochain changement.
+        });
+    }
+  }, [isAuthenticated, localWeights, remoteWeights, saveWeights]);
 
   // --- remontée du profil : les mensurations, le reste vient du jeton
   useEffect(() => {
