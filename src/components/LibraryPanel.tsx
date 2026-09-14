@@ -30,8 +30,13 @@ const compteExercices = (saved: SavedProgram) =>
  */
 export function LibraryPanel({ onClose }: { onClose: () => void }) {
   const library = libraryStore.useValue();
+  const courant = programStore.useValue();
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
+
+  // Le programme en cours se reconnaît à son contenu, et non à son nom : deux
+  // entrées peuvent porter le même nom sans être le même programme.
+  const signatureCourante = JSON.stringify(courant);
 
   const utiliser = (saved: SavedProgram) => {
     const garde = archiveProgram(programStore.get());
@@ -59,10 +64,14 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
         </p>
       ) : (
         <ul className="flex flex-col gap-2 overflow-y-auto">
-          {library.map((saved) => (
+          {library.map((saved) => {
+            const enCours = JSON.stringify(saved.program) === signatureCourante;
+            return (
             <li
               key={saved.id}
-              className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface2 p-3"
+              className={`flex flex-wrap items-center gap-2 rounded-xl border p-3 ${
+                enCours ? "border-accent/50 bg-accent-soft" : "border-border bg-surface2"
+              }`}
             >
               <div className="min-w-0 flex-1">
                 {renaming === saved.id ? (
@@ -121,16 +130,23 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
                 >
                   ✕
                 </button>
-                <button
-                  type="button"
-                  onClick={() => utiliser(saved)}
-                  className="rounded-md bg-accent px-3 py-1.5 text-xs font-bold text-accent-fg transition hover:opacity-90"
-                >
-                  Utiliser
-                </button>
+                {enCours ? (
+                  <span className="rounded-md border border-accent/60 px-3 py-1.5 text-xs text-accent">
+                    En cours
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => utiliser(saved)}
+                    className="rounded-md bg-accent px-3 py-1.5 text-xs font-bold text-accent-fg transition hover:opacity-90"
+                  >
+                    Utiliser
+                  </button>
+                )}
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </Modal>

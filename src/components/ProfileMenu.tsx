@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { onboardingStore } from "@/lib/onboarding";
 import { profileStore, type Profile } from "@/lib/profile";
-import { confirmReset } from "@/lib/programFile";
 import { archiveProgram, libraryStore } from "@/lib/programLibrary";
 import { LibraryPanel } from "@/components/LibraryPanel";
 import { SharePanel } from "@/components/SharePanel";
@@ -17,8 +16,11 @@ export function ProfileMenu({ profile }: { profile: Profile }) {
   const [open, setOpen] = useState(false);
   const [library, setLibrary] = useState(false);
   const [share, setShare] = useState(false);
-  const { program, resetProgram } = useProgram();
+  const { program } = useProgram();
   const gardes = libraryStore.useValue();
+  // Un programme déjà rangé n'a pas à être proposé une seconde fois : le garder
+  // ne ferait rien, et l'entrée laisserait croire le contraire.
+  const dejaGarde = gardes.some((s) => JSON.stringify(s.program) === JSON.stringify(program));
 
   return (
     <>
@@ -55,20 +57,21 @@ export function ProfileMenu({ profile }: { profile: Profile }) {
                 setShare(true);
               }}
             >
-              Partager ce programme (QR)
+              Partager ce programme
             </Item>
-            <Item
-              onClick={() => {
-                setOpen(false);
-                notify(
-                  archiveProgram(program)
-                    ? `« ${program.title} » est gardé de côté. Tu le retrouveras dans « Mes programmes ».`
-                    : `« ${program.title} » est déjà dans ta bibliothèque.`
-                );
-              }}
-            >
-              Garder ce programme de côté
-            </Item>
+            {!dejaGarde && (
+              <Item
+                onClick={() => {
+                  setOpen(false);
+                  archiveProgram(program);
+                  notify(
+                    `« ${program.title} » est gardé de côté. Tu le retrouveras dans « Mes programmes ».`
+                  );
+                }}
+              >
+                Garder ce programme de côté
+              </Item>
+            )}
             <Item
               onClick={() => {
                 setOpen(false);
@@ -76,14 +79,6 @@ export function ProfileMenu({ profile }: { profile: Profile }) {
               }}
             >
               Mes programmes{gardes.length ? ` (${gardes.length})` : ""}
-            </Item>
-            <Item
-              onClick={() => {
-                setOpen(false);
-                if (confirmReset()) resetProgram();
-              }}
-            >
-              Revenir au programme par défaut
             </Item>
 
             <Separator />
