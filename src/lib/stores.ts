@@ -6,6 +6,8 @@ import { NEAT_LEVELS, type Activity, type NeatLevel } from "@/lib/activities";
 import { createLocalStore } from "@/lib/createLocalStore";
 import { programSchema } from "@/lib/programSchema";
 import { repairStrings } from "@/lib/repairProgram";
+import { parseOutings, type Outing } from "@/lib/outings";
+import { parseEngraved, type Engraved } from "@/lib/trophies";
 import type { Program, SessionLog } from "@/lib/types";
 
 const programStoreRaw = createLocalStore<Program>(
@@ -81,6 +83,37 @@ export const historyStore = createLocalStore<SessionLog[]>("muscu:history", [], 
   parseHistory(value) as SessionLog[] | null
 );
 export const activeSessionStore = createLocalStore<SessionLog | null>("muscu:activeSession", null);
+
+const outingsRaw = createLocalStore<Outing[]>("muscu:outings", [], parseOutings);
+export const outingsTouchedAt = createLocalStore<number>("muscu:outingsTouchedAt", 0);
+
+/**
+ * Sorties enregistrées. Même règle que le programme : une sortie se corrige et
+ * se supprime, donc chaque écriture locale s'horodate pour que l'arbitrage
+ * sache qui, de cet appareil ou de Convex, a la version récente.
+ */
+export const outingsStore = {
+  useValue: outingsRaw.useValue,
+  get: outingsRaw.get,
+  set(value: Outing[]) {
+    outingsRaw.set(value);
+    outingsTouchedAt.set(Date.now());
+  },
+  /** Écriture venue de Convex : ce n'est pas une modification locale. */
+  setFromRemote(value: Outing[], updatedAt: number) {
+    outingsRaw.set(value);
+    outingsTouchedAt.set(updatedAt);
+  },
+  markSynced(updatedAt: number) {
+    outingsTouchedAt.set(updatedAt);
+  },
+};
+
+/**
+ * Hauts faits gravés — voir `trophies.ts`. Le registre fait foi : une séance
+ * supprimée ne reprend pas une médaille.
+ */
+export const trophyStore = createLocalStore<Engraved>("muscu:trophies", {}, parseEngraved);
 
 /**
  * Séances supprimées, gardées par leur identifiant.

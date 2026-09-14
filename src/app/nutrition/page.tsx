@@ -2,6 +2,7 @@
 
 import { ActivityEditor } from "@/components/ActivityEditor";
 import { NutritionSection } from "@/components/NutritionSection";
+import { OutingLog } from "@/components/OutingLog";
 import { NEAT_LEVELS, hoursLabel, programMinutes } from "@/lib/activities";
 import { computeNeeds, GOALS } from "@/lib/nutrition";
 import { nutritionAdvice } from "@/lib/nutritionAdvice";
@@ -148,6 +149,10 @@ export default function NutritionPage() {
             />
           </>
         )}
+
+        {/* Le journal ne dépend d'aucune mensuration : il reste visible même
+            quand le calcul des besoins, lui, ne peut pas se faire. */}
+        <OutingLog />
       </div>
     </>
   );

@@ -4,6 +4,7 @@ import { ConvexClient } from "@/components/ConvexClient";
 import { SignInGate } from "@/components/SignInGate";
 import { ModeBridge } from "@/components/ModeBridge";
 import { ProgramRepairBridge } from "@/components/ProgramRepairBridge";
+import { TrophyBridge } from "@/components/TrophyBridge";
 import { ServiceWorkerBridge } from "@/components/ServiceWorkerBridge";
 import { TokenRenewal } from "@/components/TokenRenewal";
 import { SyncBridge } from "@/components/SyncBridge";
@@ -59,6 +60,7 @@ export default function RootLayout({
           <ServiceWorkerBridge />
           <TokenRenewal />
           <ProgramRepairBridge />
+          <TrophyBridge />
           <SyncBridge />
           <SignInGate>
             <TopBar />

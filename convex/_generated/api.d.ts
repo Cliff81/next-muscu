@@ -9,8 +9,10 @@
  */
 
 import type * as identity from "../identity.js";
+import type * as outings from "../outings.js";
 import type * as profiles from "../profiles.js";
 import type * as programs from "../programs.js";
+import type * as trophies from "../trophies.js";
 import type * as workouts from "../workouts.js";
 
 import type {
@@ -21,8 +23,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   identity: typeof identity;
+  outings: typeof outings;
   profiles: typeof profiles;
   programs: typeof programs;
+  trophies: typeof trophies;
   workouts: typeof workouts;
 }>;
 

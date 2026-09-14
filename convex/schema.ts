@@ -76,4 +76,27 @@ export default defineSchema({
     .index("by_subject", ["subject"])
     .index("by_subject_and_date", ["subject", "completedAt"])
     .index("by_subject_and_log", ["subject", "logId"]),
+
+  /*
+   * Hauts faits gravés : `palier → date`. Une ligne par personne, le détail en
+   * `v.any()` comme ailleurs — sa forme est décrite côté client.
+   *
+   * Ce registre ne fait que grandir, ce qui dispense d'arbitrer : deux
+   * appareils qui ont vécu des choses différentes voient leurs registres
+   * s'unir, et la date la plus ancienne l'emporte.
+   */
+  /* Sorties enregistrées : course, vélo, rando. Arbitrées par date de
+   * modification, comme le programme — une sortie se corrige et se supprime,
+   * donc l'union ne suffirait pas. */
+  outings: defineTable({
+    subject: v.string(),
+    outings: v.any(),
+    updatedAt: v.number(),
+  }).index("by_subject", ["subject"]),
+
+  trophies: defineTable({
+    subject: v.string(),
+    entries: v.any(),
+    updatedAt: v.number(),
+  }).index("by_subject", ["subject"]),
 });

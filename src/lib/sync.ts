@@ -11,6 +11,8 @@ import type { Activity, NeatLevel } from "@/lib/activities";
 import { NEAT_LEVELS } from "@/lib/activities";
 import { GOALS, type Goal } from "@/lib/nutrition";
 import { decideProgramSync } from "@/lib/mergeProgram";
+import { decideOutingsSync, parseOutings } from "@/lib/outings";
+import { decideTrophySync, type Engraved } from "@/lib/trophies";
 import { repairStrings } from "@/lib/repairProgram";
 import {
   activitiesStore,
@@ -18,9 +20,12 @@ import {
   goalStore,
   historyStore,
   neatStore,
+  outingsStore,
+  outingsTouchedAt,
   programStore,
   programTouchedAt,
   seedProgramTimestamp,
+  trophyStore,
 } from "@/lib/stores";
 import type { Program, SessionLog } from "@/lib/types";
 
@@ -44,10 +49,14 @@ export function useSync(): void {
   const remoteProfile = useQuery(api.profiles.get, isAuthenticated ? {} : "skip");
   const remoteWorkouts = useQuery(api.workouts.list, isAuthenticated ? {} : "skip");
   const remoteRemoved = useQuery(api.workouts.removed, isAuthenticated ? {} : "skip");
+  const remoteTrophies = useQuery(api.trophies.get, isAuthenticated ? {} : "skip");
+  const remoteOutings = useQuery(api.outings.get, isAuthenticated ? {} : "skip");
   const saveProgram = useMutation(api.programs.save);
   const saveProfile = useMutation(api.profiles.save);
   const saveWorkout = useMutation(api.workouts.save);
   const removeWorkout = useMutation(api.workouts.remove);
+  const mergeTrophies = useMutation(api.trophies.merge);
+  const saveOutings = useMutation(api.outings.save);
 
   const localProgram = programStore.useValue();
   const localProfile = profileStore.useValue();
@@ -56,6 +65,8 @@ export function useSync(): void {
   const localGoal = goalStore.useValue();
   const localHistory = historyStore.useValue();
   const localDeleted = deletedWorkoutsStore.useValue();
+  const localTrophies = trophyStore.useValue();
+  const localOutings = outingsStore.useValue();
 
   // Les installations d'avant l'horodatage déclarent leur programme récent,
   // une fois, pour qu'il remonte au lieu d'être écrasé. Dans un effet : écrire
@@ -158,6 +169,45 @@ export function useSync(): void {
     removeWorkout,
     saveWorkout,
   ]);
+
+  /*
+   * --- hauts faits gravés : union dans les deux sens.
+   *
+   * Un registre ne perd jamais rien, donc rien à arbitrer non plus : ce qui
+   * manque d'un côté est ajouté. L'union finale se refait côté serveur, pour
+   * qu'un second appareil ne puisse pas écraser ce que le premier vient
+   * d'inscrire.
+   */
+  useEffect(() => {
+    if (!isAuthenticated || remoteTrophies === undefined) return;
+    const { toStore, toPush } = decideTrophySync(localTrophies, (remoteTrophies ?? {}) as Engraved);
+    if (toStore) {
+      trophyStore.set(toStore);
+      return;
+    }
+    if (toPush) {
+      void mergeTrophies({ entries: toPush }).catch(() => {
+        // Hors ligne : le registre reste ici, on retentera.
+      });
+    }
+  }, [isAuthenticated, localTrophies, mergeTrophies, remoteTrophies]);
+
+  // --- sorties : arbitrage par date, comme le programme
+  useEffect(() => {
+    if (!isAuthenticated || remoteOutings === undefined) return;
+    const decision = decideOutingsSync(localOutings, outingsTouchedAt.get(), remoteOutings);
+    if (decision.action === "pull") {
+      outingsStore.setFromRemote(parseOutings(decision.outings) ?? [], decision.updatedAt);
+      return;
+    }
+    if (decision.action === "push") {
+      void saveOutings({ outings: localOutings })
+        .then((r) => outingsStore.markSynced(r.updatedAt))
+        .catch(() => {
+          // Hors ligne : on retentera au prochain changement.
+        });
+    }
+  }, [isAuthenticated, localOutings, remoteOutings, saveOutings]);
 
   // --- remontée du profil : les mensurations, le reste vient du jeton
   useEffect(() => {

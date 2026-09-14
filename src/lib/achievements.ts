@@ -1,3 +1,5 @@
+import { ON_FOOT, ON_WHEELS, type Outing } from "@/lib/outings";
+import { mergeEngraved, trophyKey, type Engraved } from "@/lib/trophies";
 import type { SessionLog } from "@/lib/types";
 
 /**
@@ -12,13 +14,14 @@ import type { SessionLog } from "@/lib/types";
  * prix de l'absence d'état, et c'est honnête — le fait n'a plus de preuve.
  */
 
-export type Family = "assiduite" | "volume" | "force" | "rigueur";
+export type Family = "assiduite" | "volume" | "force" | "rigueur" | "endurance";
 
 export const FAMILY_LABELS: Record<Family, string> = {
   assiduite: "Assiduité",
   volume: "Volume",
   force: "Force",
   rigueur: "Rigueur",
+  endurance: "Dehors",
 };
 
 /**
@@ -54,6 +57,20 @@ export type Tally = {
   chargeMax: number;
   seancesCompletes: number;
   plusLongueSeance: number;
+  /** Temps cumulé sous la barre, en secondes. */
+  tempsTotal: number;
+  /** Le plus gros volume tenu en une seule séance. */
+  plusGrosseSeance: number;
+  plusDeSeries: number;
+  /** Journées du programme visitées, et passages par mouvement. */
+  journees: Set<string>;
+  passages: Map<string, number>;
+  fidelite: number;
+  premierJour: string | null;
+  /** Sorties enregistrées, et kilomètres cumulés. */
+  sorties: number;
+  kmPied: number;
+  kmVelo: number;
   express: boolean;
   matinales: number;
   nocturnes: number;
@@ -99,6 +116,16 @@ export function emptyTally(weightKg: number | null = null): Tally {
     chargeMax: 0,
     seancesCompletes: 0,
     plusLongueSeance: 0,
+    tempsTotal: 0,
+    plusGrosseSeance: 0,
+    plusDeSeries: 0,
+    journees: new Set(),
+    passages: new Map(),
+    fidelite: 0,
+    premierJour: null,
+    sorties: 0,
+    kmPied: 0,
+    kmVelo: 0,
     express: false,
     matinales: 0,
     nocturnes: 0,
@@ -126,6 +153,7 @@ export function addSession(tally: Tally, log: SessionLog): void {
 
   let cochees = 0;
   let prevues = 0;
+  let volume = 0;
   for (const exercice of log.exercises) {
     let meilleure = 0;
     for (const serie of exercice.sets) {
@@ -137,6 +165,7 @@ export function addSession(tally: Tally, log: SessionLog): void {
       tally.repetitions += n;
       const charge = serie.weight ?? 0;
       tally.tonnage += charge * n;
+      volume += charge * n;
       if (charge > meilleure) meilleure = charge;
     }
     if (meilleure > 0) {
@@ -151,6 +180,9 @@ export function addSession(tally: Tally, log: SessionLog): void {
       tally.chargeMax = Math.max(tally.chargeMax, meilleure);
     }
     tally.exercices.add(exercice.exerciseName);
+    const passages = (tally.passages.get(exercice.exerciseName) ?? 0) + 1;
+    tally.passages.set(exercice.exerciseName, passages);
+    tally.fidelite = Math.max(tally.fidelite, passages);
   }
 
   tally.seances++;
@@ -159,8 +191,12 @@ export function addSession(tally: Tally, log: SessionLog): void {
   if (complete) tally.seancesCompletes++;
   if (log.durationSeconds !== null) {
     tally.plusLongueSeance = Math.max(tally.plusLongueSeance, log.durationSeconds);
+    tally.tempsTotal += log.durationSeconds;
     if (complete && log.durationSeconds < 30 * 60) tally.express = true;
   }
+  tally.plusGrosseSeance = Math.max(tally.plusGrosseSeance, volume);
+  tally.plusDeSeries = Math.max(tally.plusDeSeries, cochees);
+  tally.journees.add(log.dayId);
 
   const heure = debut.getHours();
   if (heure < 7) tally.matinales++;
@@ -168,7 +204,20 @@ export function addSession(tally: Tally, log: SessionLog): void {
   const jourSemaine = debut.getDay();
   if (jourSemaine === 0 || jourSemaine === 6) tally.weekend++;
 
-  const jour = jourCle(debut);
+  noterJour(tally, debut);
+}
+
+/**
+ * Tient les suites de jours et de semaines.
+ *
+ * Partagé par les séances et les sorties : courir un dimanche prolonge la
+ * suite autant que soulever de la fonte. Les événements doivent arriver dans
+ * l'ordre chronologique — la suite se tient au fil de l'eau, sans revenir en
+ * arrière.
+ */
+function noterJour(tally: Tally, quand: Date): void {
+  const jour = jourCle(quand);
+  if (tally.premierJour === null) tally.premierJour = jour;
   if (jour !== tally.dernierJour) {
     const ecart = tally.dernierJour === null ? null : joursEntre(tally.dernierJour, jour);
     if (ecart === 1) tally.suiteJours++;
@@ -180,7 +229,7 @@ export function addSession(tally: Tally, log: SessionLog): void {
     tally.meilleureSuiteJours = Math.max(tally.meilleureSuiteJours, tally.suiteJours);
   }
 
-  const semaine = lundiCle(debut);
+  const semaine = lundiCle(quand);
   if (semaine !== tally.derniereSemaine) {
     const ecart = tally.derniereSemaine === null ? null : joursEntre(tally.derniereSemaine, semaine);
     tally.suiteSemaines = ecart === 7 ? tally.suiteSemaines + 1 : 1;
@@ -191,6 +240,22 @@ export function addSession(tally: Tally, log: SessionLog): void {
   tally.parSemaine.set(semaine, compte);
   tally.meilleureSemaine = Math.max(tally.meilleureSemaine, compte);
 }
+
+/** Ajoute une sortie au décompte. Même exigence d'ordre que `addSession`. */
+export function addOuting(tally: Tally, outing: Outing): void {
+  const quand = new Date(`${outing.date}T12:00:00`);
+  if (Number.isNaN(quand.getTime())) return;
+  tally.sorties++;
+  const km = outing.km ?? 0;
+  if (ON_FOOT.includes(outing.sportId)) tally.kmPied += km;
+  if (ON_WHEELS.includes(outing.sportId)) tally.kmVelo += km;
+  tally.tempsTotal += outing.minutes * 60;
+  noterJour(tally, quand);
+}
+
+/** Jours écoulés entre la première et la dernière séance. */
+const anciennete = (t: Tally): number =>
+  t.premierJour && t.dernierJour ? joursEntre(t.premierJour, t.dernierJour) + 1 : 0;
 
 /** Part du poids de corps atteinte sur un mouvement, en pourcentage. */
 const partDuPoids = (t: Tally): number =>
@@ -222,7 +287,86 @@ export const LADDERS: Ladder[] = [
   { id: "duree", name: "Plus longue séance", description: "Le jour où tu n'as pas compté ton temps", icon: "⏱️", family: "rigueur", unit: "min", tiers: [45, 60, 90, 120], measure: (t) => Math.round(t.plusLongueSeance / 60) },
   { id: "express", name: "Express", description: "Une séance complète en moins de trente minutes", icon: "⚡", family: "rigueur", tiers: [1], measure: (t) => (t.express ? 1 : 0) },
   { id: "mouvements", name: "Mouvements différents", description: "La variété de ce que tu as essayé", icon: "🧭", family: "rigueur", unit: "mouvements", tiers: [5, 20, 50, 100], measure: (t) => t.exercices.size },
+  { id: "temps", name: "Temps sous la barre", description: "Tout ce que tu as passé à t'entraîner", icon: "⌛", family: "rigueur", unit: "h", tiers: [1, 10, 24, 50, 100, 250, 500], measure: (t) => Math.round(t.tempsTotal / 3600) },
+  { id: "anciennete", name: "Ancienneté", description: "Depuis ta toute première séance", icon: "🎂", family: "rigueur", unit: "jours", tiers: [7, 30, 90, 180, 365, 730], measure: anciennete },
+  { id: "journees", name: "Journées du programme", description: "Les séances différentes que tu as faites", icon: "🗂️", family: "rigueur", unit: "journées", tiers: [2, 3, 4, 5, 6], measure: (t) => t.journees.size },
+  { id: "fidelite", name: "Fidèle à un mouvement", description: "Le mouvement que tu as le plus répété, séance après séance", icon: "🔂", family: "rigueur", unit: "séances", tiers: [5, 10, 25, 50, 100], measure: (t) => t.fidelite },
+
+  // --- dehors
+  { id: "km-pied", name: "Kilomètres à pied", description: "Course, marche et randonnée cumulées", icon: "👟", family: "endurance", unit: "km", tiers: [5, 10, 21.1, 42.2, 100, 250, 400, 1_000, 2_500], measure: (t) => t.kmPied },
+  { id: "km-velo", name: "Kilomètres à vélo", description: "Tout ce que tu as avalé sur deux roues", icon: "🚲", family: "endurance", unit: "km", tiers: [20, 50, 100, 250, 500, 1_000, 3_500], measure: (t) => t.kmVelo },
+  { id: "sorties", name: "Sorties enregistrées", description: "Chaque sortie notée dans le journal", icon: "🧭", family: "endurance", unit: "sorties", tiers: [1, 10, 25, 50, 100, 250], measure: (t) => t.sorties },
+
+  // --- volume, en une seule séance
+  { id: "grosse-seance", name: "Grosse séance", description: "Le plus de kilos déplacés en une seule fois", icon: "🐘", family: "volume", unit: "kg", tiers: [2_000, 5_000, 10_000, 15_000, 25_000], measure: (t) => t.plusGrosseSeance },
+  { id: "series-seance", name: "Séries en une séance", description: "La séance la plus fournie", icon: "🧮", family: "volume", unit: "séries", tiers: [10, 20, 30, 40], measure: (t) => t.plusDeSeries },
 ];
+
+/**
+ * Équivalences, pour donner une taille aux grands nombres.
+ *
+ * Les ancrages sont approximatifs et assumés comme tels — c'est un ordre de
+ * grandeur, pas une pesée. Le premier qui dépasse la valeur n'est pas retenu :
+ * on garde le plus grand que l'on ait déjà dépassé.
+ */
+const EQUIVALENCES: Record<string, { at: number; text: string }[]> = {
+  tonnage: [
+    { at: 500, text: "un cheval" },
+    { at: 1_300, text: "une Clio" },
+    { at: 5_000, text: "un éléphant d'Afrique" },
+    { at: 12_000, text: "un bus" },
+    { at: 40_000, text: "un semi-remorque chargé" },
+    { at: 78_000, text: "un Airbus A320 au décollage" },
+    { at: 380_000, text: "une rame de TGV" },
+    { at: 1_000_000, text: "trois rames de TGV" },
+    { at: 7_300_000, text: "la charpente de la tour Eiffel" },
+  ],
+  "grosse-seance": [
+    { at: 2_000, text: "deux vaches" },
+    { at: 5_000, text: "un éléphant d'Afrique" },
+    { at: 12_000, text: "un bus" },
+    { at: 25_000, text: "deux bus" },
+  ],
+  temps: [
+    { at: 3, text: "un aller-retour Limoges–Paris en voiture" },
+    { at: 11, text: "la trilogie du Seigneur des Anneaux en version longue" },
+    { at: 24, text: "une journée entière, sans dormir" },
+    { at: 100, text: "quatre jours et quatre nuits" },
+    { at: 151, text: "un mois de travail à plein temps" },
+    { at: 500, text: "trois mois de travail à plein temps" },
+  ],
+  "km-pied": [
+    { at: 10, text: "la traversée de Paris d'est en ouest" },
+    { at: 21.1, text: "un semi-marathon" },
+    { at: 42.2, text: "un marathon" },
+    { at: 100, text: "Limoges → Poitiers" },
+    { at: 250, text: "Limoges → Nantes" },
+    { at: 400, text: "Limoges → Paris" },
+    { at: 1_000, text: "Lille → Perpignan" },
+    { at: 2_500, text: "un tour de France… à pied" },
+  ],
+  "km-velo": [
+    { at: 50, text: "une sortie de club le dimanche matin" },
+    { at: 100, text: "un premier « cent bornes »" },
+    { at: 250, text: "Limoges → Nantes" },
+    { at: 400, text: "Limoges → Paris" },
+    { at: 1_000, text: "Lille → Perpignan" },
+    { at: 3_500, text: "un Tour de France complet" },
+  ],
+  repetitions: [
+    { at: 1_000, text: "une répétition par minute pendant seize heures" },
+    { at: 10_000, text: "le compte de pas d'une journée bien remplie" },
+    { at: 50_000, text: "une répétition toutes les dix minutes pendant un an" },
+  ],
+};
+
+/** Ce à quoi ressemble un compteur, s'il y a de quoi le dire. */
+export function equivalent(ladderId: string, value: number): string | null {
+  const echelle = EQUIVALENCES[ladderId];
+  if (!echelle) return null;
+  const atteint = echelle.filter((e) => value >= e.at);
+  return atteint.length ? atteint[atteint.length - 1].text : null;
+}
 
 /** Nombre total de paliers, tous hauts faits confondus. */
 export const TIER_COUNT = LADDERS.reduce((n, l) => n + l.tiers.length, 0);
@@ -239,41 +383,74 @@ export type LadderProgress = {
 };
 
 /**
- * Passe l'historique en revue et rend l'état de chaque échelle.
+ * Paliers que l'historique justifie, avec la date de la séance qui les a fait
+ * basculer — et non celle du jour où l'on regarde.
  *
- * Un seul parcours, dans l'ordre chronologique : la date d'un palier est celle
- * de la séance qui l'a fait basculer, et non celle du jour où l'on regarde.
- * C'est ce qui permet d'annoncer en fin de séance ce qu'elle vient d'ouvrir,
- * sans avoir rien mémorisé.
+ * C'est la matière que le registre grave, et c'est aussi ce qui permet
+ * d'annoncer en fin de séance ce qu'elle vient d'ouvrir.
  */
-export function evaluateLadders(
-  history: SessionLog[],
-  weightKg: number | null = null
-): LadderProgress[] {
-  const finies = history
+type Evenement = { at: string; apply: (tally: Tally) => void };
+
+/**
+ * Séances et sorties dans un seul fil chronologique.
+ *
+ * Les deux nourrissent les mêmes compteurs : les mélanger dans l'ordre est ce
+ * qui donne des suites de jours justes et des dates de palier exactes.
+ */
+function evenements(history: SessionLog[], outings: Outing[]): Evenement[] {
+  const seances: Evenement[] = history
     .filter((s) => s.finishedAt !== null)
-    .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+    .map((s) => ({ at: s.finishedAt as string, apply: (t: Tally) => addSession(t, s) }));
+  const sorties: Evenement[] = outings.map((o) => ({
+    at: `${o.date}T12:00:00.000`,
+    apply: (t: Tally) => addOuting(t, o),
+  }));
+  return [...seances, ...sorties].sort((a, b) => a.at.localeCompare(b.at));
+}
 
+export function derivedUnlocks(
+  history: SessionLog[],
+  weightKg: number | null = null,
+  outings: Outing[] = []
+): Engraved {
   const tally = emptyTally(weightKg);
-  const dates = new Map<string, (string | null)[]>(
-    LADDERS.map((l) => [l.id, l.tiers.map(() => null)])
-  );
+  const dates: Engraved = {};
 
-  for (const seance of finies) {
-    addSession(tally, seance);
+  for (const evenement of evenements(history, outings)) {
+    evenement.apply(tally);
     for (const echelle of LADDERS) {
       const atteint = echelle.measure(tally);
-      const dejaLa = dates.get(echelle.id)!;
       echelle.tiers.forEach((palier, i) => {
-        if (dejaLa[i] === null && atteint >= palier) {
-          dejaLa[i] = seance.finishedAt ?? seance.startedAt;
-        }
+        const cle = trophyKey(echelle.id, i);
+        if (dates[cle] === undefined && atteint >= palier) dates[cle] = evenement.at;
       });
     }
   }
 
+  return dates;
+}
+
+/**
+ * État de chaque échelle : ce que l'historique montre, complété par ce que le
+ * registre a gravé.
+ *
+ * Les deux ne disent pas la même chose. Le compteur suit l'historique du
+ * moment — supprimer une séance le fait baisser. Les paliers, eux, viennent du
+ * registre : une médaille obtenue reste obtenue.
+ */
+export function evaluateLadders(
+  history: SessionLog[],
+  weightKg: number | null = null,
+  engraved: Engraved = {},
+  outings: Outing[] = []
+): LadderProgress[] {
+  const dates = mergeEngraved(engraved, derivedUnlocks(history, weightKg, outings));
+
+  const tally = emptyTally(weightKg);
+  for (const evenement of evenements(history, outings)) evenement.apply(tally);
+
   return LADDERS.map((ladder) => {
-    const unlockedAt = dates.get(ladder.id)!;
+    const unlockedAt = ladder.tiers.map((_, i) => dates[trophyKey(ladder.id, i)] ?? null);
     const level = unlockedAt.filter((d) => d !== null).length;
     return {
       ladder,

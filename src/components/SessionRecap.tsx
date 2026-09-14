@@ -6,6 +6,7 @@ import { leJour } from "@/components/Achievements";
 import {
   addSession,
   emptyTally,
+  equivalent,
   evaluateLadders,
   nextGoals,
   quantity,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/achievements";
 import { decimal } from "@/lib/format";
 import { profileStore } from "@/lib/profile";
+import { outingsStore, trophyStore } from "@/lib/stores";
 import { formatDuration, sessionProgress } from "@/lib/session";
 import { useHistory } from "@/lib/useHistory";
 import type { SessionLog } from "@/lib/types";
@@ -29,6 +31,8 @@ export function SessionRecap({ log }: { log: SessionLog }) {
   const { history } = useHistory();
   const profile = profileStore.useValue();
   const poids = profile?.weightKg ?? null;
+  const graves = trophyStore.useValue();
+  const sorties = outingsStore.useValue();
 
   // Le décompte d'une seule séance : le même calcul que pour l'historique,
   // appliqué à un unique journal.
@@ -38,7 +42,10 @@ export function SessionRecap({ log }: { log: SessionLog }) {
     return tally;
   }, [log, poids]);
 
-  const etats = useMemo(() => evaluateLadders(history, poids), [history, poids]);
+  const etats = useMemo(
+    () => evaluateLadders(history, poids, graves, sorties),
+    [history, poids, graves, sorties]
+  );
   const nouveaux = useMemo(
     () => (log.finishedAt ? tiersUnlockedBy(etats, log.finishedAt) : []),
     [etats, log.finishedAt]
@@ -88,6 +95,11 @@ export function SessionRecap({ log }: { log: SessionLog }) {
                     )}
                   </div>
                   <div className="text-[0.72rem] text-muted">{ladder.description}</div>
+                  {equivalent(ladder.id, tier) && (
+                    <div className="text-[0.7rem] text-muted italic">
+                      soit à peu près {equivalent(ladder.id, tier)}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

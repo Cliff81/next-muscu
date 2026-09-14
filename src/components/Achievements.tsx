@@ -5,6 +5,7 @@ import {
   FAMILY_LABELS,
   LADDERS,
   TIER_COUNT,
+  equivalent,
   evaluateLadders,
   quantity,
   tierLabel,
@@ -12,9 +13,10 @@ import {
   type LadderProgress,
 } from "@/lib/achievements";
 import { profileStore } from "@/lib/profile";
+import { outingsStore, trophyStore } from "@/lib/stores";
 import type { SessionLog } from "@/lib/types";
 
-const FAMILIES: Family[] = ["assiduite", "volume", "force", "rigueur"];
+const FAMILIES: Family[] = ["assiduite", "volume", "force", "endurance", "rigueur"];
 
 export const leJour = (iso: string) =>
   new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
@@ -29,8 +31,13 @@ export const leJour = (iso: string) =>
 export function Achievements({ history }: { history: SessionLog[] }) {
   const profile = profileStore.useValue();
   const poids = profile?.weightKg ?? null;
+  const graves = trophyStore.useValue();
+  const sorties = outingsStore.useValue();
 
-  const etats = useMemo(() => evaluateLadders(history, poids), [history, poids]);
+  const etats = useMemo(
+    () => evaluateLadders(history, poids, graves, sorties),
+    [history, poids, graves, sorties]
+  );
   const derniere = useMemo(() => {
     const finies = history.filter((s) => s.finishedAt !== null).map((s) => s.finishedAt as string);
     return finies.length ? finies.reduce((a, b) => (a > b ? a : b)) : null;
@@ -77,6 +84,7 @@ export function Achievements({ history }: { history: SessionLog[] }) {
 
 function Carte({ etat, nouveau }: { etat: LadderProgress; nouveau: boolean }) {
   const { ladder, value, level, unlockedAt, next } = etat;
+  const comme = equivalent(ladder.id, value);
   const commence = level > 0;
   const avancement = next === null ? 100 : Math.min(100, Math.round((value / next) * 100));
   const dernier = commence ? unlockedAt[level - 1] : null;
@@ -121,6 +129,7 @@ function Carte({ etat, nouveau }: { etat: LadderProgress; nouveau: boolean }) {
         ) : (
           <div className="mt-1 text-[0.7rem] text-accent">Échelle terminée 🏆</div>
         )}
+        {comme && <div className="mt-1 text-[0.66rem] text-muted italic">soit à peu près {comme}</div>}
 
         {dernier && (
           <div className="mt-1 text-[0.68rem] text-accent/80">
