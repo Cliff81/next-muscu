@@ -13,6 +13,7 @@ import type * as libraries from "../libraries.js";
 import type * as outings from "../outings.js";
 import type * as profiles from "../profiles.js";
 import type * as programs from "../programs.js";
+import type * as shares from "../shares.js";
 import type * as trophies from "../trophies.js";
 import type * as workouts from "../workouts.js";
 
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   outings: typeof outings;
   profiles: typeof profiles;
   programs: typeof programs;
+  shares: typeof shares;
   trophies: typeof trophies;
   workouts: typeof workouts;
 }>;

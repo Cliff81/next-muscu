@@ -94,6 +94,23 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_subject", ["subject"]),
 
+  /*
+   * Programmes partagés par lien.
+   *
+   * Le code voyage dans un QR : c'est lui qu'on montre, pas le programme. Un
+   * programme complet pèse une vingtaine de kilo-octets, bien au-delà de ce
+   * qu'un QR sait porter — et un lien court reste lisible même froissé.
+   */
+  shares: defineTable({
+    code: v.string(),
+    subject: v.string(),
+    title: v.string(),
+    program: v.any(),
+    createdAt: v.number(),
+  })
+    .index("by_code", ["code"])
+    .index("by_subject", ["subject"]),
+
   /* Programmes gardés de côté. La table `programs` ne porte que celui qui est
    * actif : l'archive a la sienne, arbitrée par date de modification. */
   libraries: defineTable({

@@ -53,22 +53,8 @@ export const programSchema = z.object({
   nutrition: z.array(nutritionCardSchema),
 });
 
-export type ProgramParseResult =
-  | { success: true; program: z.infer<typeof programSchema> }
-  | { success: false; error: string };
-
-export function parseProgramJson(raw: string): ProgramParseResult {
-  let data: unknown;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    return { success: false, error: "Le fichier n'est pas un JSON valide." };
-  }
-  const result = programSchema.safeParse(data);
-  if (!result.success) {
-    const firstIssue = result.error.issues[0];
-    const path = firstIssue.path.join(".") || "racine";
-    return { success: false, error: `Format invalide (${path}) : ${firstIssue.message}` };
-  }
-  return { success: true, program: result.data };
+/** Relit un programme venu d'ailleurs — un partage, une ligne Convex. */
+export function parseProgram(value: unknown): z.infer<typeof programSchema> | null {
+  const result = programSchema.safeParse(value);
+  return result.success ? result.data : null;
 }

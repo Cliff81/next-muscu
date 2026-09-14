@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { onboardingStore } from "@/lib/onboarding";
 import { profileStore, type Profile } from "@/lib/profile";
-import { confirmReset, exportProgram, importProgramFromFile } from "@/lib/programFile";
+import { confirmReset } from "@/lib/programFile";
 import { archiveProgram, libraryStore } from "@/lib/programLibrary";
 import { LibraryPanel } from "@/components/LibraryPanel";
+import { SharePanel } from "@/components/SharePanel";
 import { notify } from "@/lib/toast";
 import { tokenStore } from "@/lib/googleToken";
 import { SyncStatus } from "@/components/SyncStatus";
@@ -15,8 +16,8 @@ import { useProgram } from "@/lib/useProgram";
 export function ProfileMenu({ profile }: { profile: Profile }) {
   const [open, setOpen] = useState(false);
   const [library, setLibrary] = useState(false);
-  const fileInput = useRef<HTMLInputElement>(null);
-  const { program, setProgram, resetProgram } = useProgram();
+  const [share, setShare] = useState(false);
+  const { program, resetProgram } = useProgram();
   const gardes = libraryStore.useValue();
 
   return (
@@ -51,18 +52,10 @@ export function ProfileMenu({ profile }: { profile: Profile }) {
             <Item
               onClick={() => {
                 setOpen(false);
-                fileInput.current?.click();
+                setShare(true);
               }}
             >
-              Importer un programme (JSON)
-            </Item>
-            <Item
-              onClick={() => {
-                setOpen(false);
-                exportProgram(program);
-              }}
-            >
-              Exporter le programme actuel
+              Partager ce programme (QR)
             </Item>
             <Item
               onClick={() => {
@@ -120,27 +113,8 @@ export function ProfileMenu({ profile }: { profile: Profile }) {
         ) : null}
       </div>
 
-      <input
-        ref={fileInput}
-        type="file"
-        accept="application/json"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (!file) return;
-          void importProgramFromFile(file).then((imported) => {
-            if (imported) {
-              // L'ancien est gardé avant d'être remplacé, comme partout
-              // ailleurs : un import ne doit pas être un aller sans retour.
-              archiveProgram(program);
-              setProgram(imported);
-              notify(`« ${imported.title} » importé. Ton programme précédent est gardé de côté.`);
-            }
-          });
-        }}
-      />
       {library ? <LibraryPanel onClose={() => setLibrary(false)} /> : null}
+      {share ? <SharePanel program={program} onClose={() => setShare(false)} /> : null}
     </>
   );
 }
