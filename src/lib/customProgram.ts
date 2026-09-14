@@ -1,4 +1,5 @@
 import { MUSCLE_GROUPS, type DayTemplate } from "@/lib/generateProgram";
+import type { Program } from "@/lib/types";
 
 /**
  * Programme dessiné à la main.
@@ -78,3 +79,46 @@ export function toTemplate(draft: DayDraft, index: number): DayTemplate {
 export const draftReady = (draft: DayDraft) => draft.groups.length > 0;
 
 export const draftsReady = (drafts: DayDraft[]) => drafts.length > 0 && drafts.every(draftReady);
+
+/** Groupes cochés ici et déjà cochés la veille. */
+export function sharedGroups(draft: DayDraft, previous: DayDraft | undefined): string[] {
+  if (!previous) return [];
+  return draft.groups.filter((id) => previous.groups.includes(id));
+}
+
+/**
+ * Groupes qui n'auront aucun exercice.
+ *
+ * Quatre groupes pour trois exercices : la répartition en sert trois et laisse
+ * le dernier vide. Mieux vaut le dire pendant qu'on compose que de laisser
+ * découvrir la journée amputée.
+ */
+export function droppedGroups(draft: DayDraft): string[] {
+  return draft.groups.slice(draft.count);
+}
+
+/** Nom des groupes, dans l'ordre donné. */
+export function groupNames(ids: string[]): string[] {
+  return ids.flatMap((id) => {
+    const groupe = MUSCLE_GROUPS.find((g) => g.id === id);
+    return groupe ? [groupe.name] : [];
+  });
+}
+
+/**
+ * Exercices par catégorie sur la semaine, du plus fourni au moins.
+ *
+ * Compté sur le programme construit et non sur les intentions : c'est après le
+ * rognage au temps disponible que la répartition réelle se lit.
+ */
+export function weeklyVolume(program: Program): { title: string; count: number }[] {
+  const compte = new Map<string, number>();
+  for (const day of program.days) {
+    for (const section of day.sections) {
+      compte.set(section.title, (compte.get(section.title) ?? 0) + section.exercises.length);
+    }
+  }
+  return [...compte]
+    .map(([title, count]) => ({ title, count }))
+    .sort((a, b) => b.count - a.count || a.title.localeCompare(b.title));
+}

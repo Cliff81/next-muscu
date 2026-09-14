@@ -16,6 +16,7 @@ export type Step =
   | "build"
   | "type"
   | "days"
+  | "review"
   | "nutrition";
 
 /**

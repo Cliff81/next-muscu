@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { onboardingStore, FREQUENCIES, SESSION_TIMES, type Step } from "@/lib/onboarding";
-import { loadCatalog, type Level } from "@/lib/catalog";
+import { loadCatalog, type CatalogExercise, type Level } from "@/lib/catalog";
 import {
   generateProgram,
   MUSCLE_GROUPS,
@@ -15,10 +15,17 @@ import {
   MIN_EXERCISES,
   draftTitle,
   draftsReady,
+  droppedGroups,
   emptyDrafts,
+  groupNames,
+  sharedGroups,
   toTemplate,
+  weeklyVolume,
   type DayDraft,
 } from "@/lib/customProgram";
+import { ExercisePicker } from "@/components/ExercisePicker";
+import { swapExercise } from "@/lib/swapExercise";
+import type { Program } from "@/lib/types";
 import { SUPPORTS, type Support } from "@/lib/homeTraining";
 import { PAIN_AREAS, type PainArea } from "@/lib/painAreas";
 import { archiveProgram, libraryStore, removeSaved, type SavedProgram } from "@/lib/programLibrary";
@@ -41,6 +48,9 @@ export function Assistant({ profile }: { profile: Profile }) {
   const [minutesPerSession, setMinutes] = useState(60);
   const [drafts, setDrafts] = useState<DayDraft[]>([]);
   const [dayIndex, setDayIndex] = useState(0);
+  // Le programme construit attend d'être relu avant d'être installé : rien
+  // n'est écrit tant que la relecture n'est pas validée.
+  const [draftProgram, setDraftProgram] = useState<Program | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [needs, setNeeds] = useState<Needs | null>(null);
@@ -59,13 +69,10 @@ export function Assistant({ profile }: { profile: Profile }) {
     setError(null);
     try {
       const catalog = await loadCatalog();
-      // Le programme en cours est mis de côté avant d'être remplacé : c'est le
-      // moment où il disparaissait sans retour possible.
-      archiveProgram(programStore.get());
       const level = profile.experience
         ? LEVEL_FROM_EXPERIENCE[profile.experience]
         : "intermediate";
-      programStore.set(
+      setDraftProgram(
         generateProgram(catalog, {
           frequency,
           type,
@@ -78,7 +85,7 @@ export function Assistant({ profile }: { profile: Profile }) {
           title: plan ? "Sur mesure" : undefined,
         })
       );
-      finish();
+      setStep("review");
     } catch {
       setError("Le catalogue d'exercices n'a pas pu être chargé.");
     } finally {
@@ -164,6 +171,24 @@ export function Assistant({ profile }: { profile: Profile }) {
           onPrevious={() => (dayIndex === 0 ? setStep("build") : setDayIndex(dayIndex - 1))}
           onNext={() => setDayIndex(dayIndex + 1)}
           onFinish={() => void build("split", drafts)}
+        />
+      ) : step === "review" && draftProgram ? (
+        <StepReview
+          program={draftProgram}
+          onSwap={(dayId, exerciseId, replacement) =>
+            setDraftProgram((p) => (p ? swapExercise(p, dayId, exerciseId, replacement) : p))
+          }
+          onConfirm={() => {
+            // Le programme en cours est mis de côté avant d'être remplacé :
+            // c'est le moment où il disparaissait sans retour possible.
+            archiveProgram(programStore.get());
+            programStore.set(draftProgram);
+            finish();
+          }}
+          onBack={() => {
+            setDraftProgram(null);
+            setStep(drafts.length ? "days" : "type");
+          }}
         />
       ) : step === "type" ? (
         <StepType
@@ -916,6 +941,8 @@ function StepDays({
 
   const derniere = index === drafts.length - 1;
   const pret = draft.groups.length > 0;
+  const veille = groupNames(sharedGroups(draft, drafts[index - 1]));
+  const laisses = groupNames(droppedGroups(draft));
 
   const basculer = (id: string) =>
     onChange({
@@ -983,6 +1010,28 @@ function StepDays({
         dedans — et te le dira.
       </p>
 
+      {laisses.length > 0 && (
+        <Avertissement>
+          {laisses.length > 1
+            ? "Ces groupes n'auront aucun exercice : "
+            : "Ce groupe n'aura aucun exercice : "}
+          <span className="text-text">{laisses.join(", ")}</span>
+          {`. Avec ${draft.count} exercice${draft.count > 1 ? "s" : ""}, seuls les ${draft.count} premiers groupes cochés sont servis — ajoute des exercices ou décoche.`}
+        </Avertissement>
+      )}
+
+      {veille.length > 0 && (
+        <Avertissement>
+          {/* Phrase composée en JS : coupée en JSX autour d'une expression,
+              l'espace qui la précède se perd — « travailléla veille ». */}
+          <span className="text-text">{veille.join(", ")}</span>
+          {veille.length > 1
+            ? " étaient déjà travaillés la veille."
+            : " était déjà travaillé la veille."}
+          {" Un muscle se reconstruit en deux jours environ : l'enchaîner deux séances de suite donne du volume, pas forcément du progrès. À garder si c'est voulu."}
+        </Avertissement>
+      )}
+
       {drafts.some((d, i) => i !== index && d.groups.length > 0) && (
         <ul className="mt-5 flex flex-col gap-1">
           {drafts.map((d, i) =>
@@ -1011,6 +1060,103 @@ function StepDays({
       <LinkButton onClick={onPrevious}>
         {index === 0 ? "← Revenir au choix de construction" : `← Journée ${index}`}
       </LinkButton>
+    </>
+  );
+}
+
+function Avertissement({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mt-3 rounded-xl border border-warn/40 bg-surface2 px-4 py-2.5 text-[0.78rem] text-muted">
+      <span className="text-warn">⚠</span> {children}
+    </p>
+  );
+}
+
+/**
+ * Relecture avant installation.
+ *
+ * Le programme est construit mais rien n'est encore écrit : c'est ici qu'on
+ * voit ce qui a été choisi, exercice par exercice, et qu'on remplace ce qui ne
+ * convient pas. Le sélecteur est celui du programme — même liste, même filtre
+ * par muscle, et le créneau garde ses séries et son repos.
+ */
+function StepReview({
+  program,
+  onSwap,
+  onConfirm,
+  onBack,
+}: {
+  program: Program;
+  onSwap: (dayId: string, exerciseId: string, replacement: CatalogExercise) => void;
+  onConfirm: () => void;
+  onBack: () => void;
+}) {
+  const volume = weeklyVolume(program);
+
+  return (
+    <>
+      <Heading eyebrow="Dernière relecture">
+        {program.title} <span className="text-accent">{program.titleAccent}</span>
+      </Heading>
+      <p className="mt-3 text-sm text-muted">
+        Voilà ce que ça donne. Remplace ce qui ne te va pas avec ⇄ — rien n&apos;est
+        enregistré tant que tu n&apos;as pas validé.
+      </p>
+
+      <div className="mt-5 flex max-h-[45vh] flex-col gap-4 overflow-y-auto pr-1">
+        {program.days.map((day) => (
+          <div key={day.id}>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-display text-lg">
+                <span className="text-accent">{day.code}</span> {day.title}
+              </span>
+              <span className="text-[0.7rem] text-muted">{day.restInfo.duration}</span>
+            </div>
+            {day.sections.map((section, i) => (
+              <div key={i} className="mt-1.5">
+                <div className="text-[0.65rem] tracking-[0.12em] text-muted uppercase">
+                  {section.title}
+                </div>
+                <ul className="mt-1 flex flex-col gap-1">
+                  {section.exercises.map((exercise) => (
+                    <li
+                      key={exercise.id}
+                      className="flex items-center gap-2 rounded-lg bg-surface2 px-3 py-2 text-[0.8rem]"
+                    >
+                      <span className="min-w-0 flex-1">
+                        {exercise.name}
+                        <span className="text-muted">
+                          {" "}
+                          · {exercise.series}×{exercise.reps}
+                        </span>
+                      </span>
+                      <ExercisePicker
+                        current={exercise}
+                        muscles={section.muscles}
+                        onChoose={(chosen) => onSwap(day.id, exercise.id, chosen)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {volume.length > 0 && (
+        <div className="mt-4 rounded-xl bg-surface2 px-4 py-3">
+          <div className="text-[0.65rem] tracking-[0.12em] text-muted uppercase">
+            Sur la semaine
+          </div>
+          <div className="mt-1 text-[0.78rem] text-muted">
+            {volume.map((v) => `${v.title} ${v.count}`).join(" · ")}
+          </div>
+        </div>
+      )}
+
+      <PrimaryButton onClick={onConfirm}>Enregistrer ce programme</PrimaryButton>
+      <LinkButton onClick={onBack}>← Revenir au découpage</LinkButton>
     </>
   );
 }
