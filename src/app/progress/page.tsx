@@ -7,12 +7,24 @@ import { distinctExerciseNames, weightProgressionFor } from "@/lib/progressData"
 import { formatDuration, sessionProgress } from "@/lib/session";
 import { useHistory } from "@/lib/useHistory";
 
+const dateLongue: Intl.DateTimeFormatOptions = {
+  weekday: "long",
+  day: "2-digit",
+  month: "long",
+  year: "numeric",
+};
+
 export default function ProgressPage() {
-  const { history } = useHistory();
+  const { history, removeSession } = useHistory();
   const exerciseNames = useMemo(() => distinctExerciseNames(history), [history]);
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
 
-  const activeExercise = selectedExercise ?? exerciseNames[0] ?? null;
+  // Supprimer une séance peut faire disparaître le dernier exercice choisi :
+  // sans ce repli, le graphique resterait vide sur un nom qui n'existe plus.
+  const activeExercise =
+    selectedExercise && exerciseNames.includes(selectedExercise)
+      ? selectedExercise
+      : (exerciseNames[0] ?? null);
   const points = useMemo(
     () => (activeExercise ? weightProgressionFor(history, activeExercise) : []),
     [history, activeExercise]
@@ -70,12 +82,7 @@ export default function ProgressPage() {
                         {session.dayCode} · {session.dayTitle}
                       </div>
                       <div className="text-[0.75rem] text-muted">
-                        {new Date(session.startedAt).toLocaleDateString("fr-FR", {
-                          weekday: "long",
-                          day: "2-digit",
-                          month: "long",
-                          year: "numeric",
-                        })}
+                        {new Date(session.startedAt).toLocaleDateString("fr-FR", dateLongue)}
                       </div>
                     </div>
                     <div className="flex items-center gap-4 text-[0.8rem] text-muted">
@@ -85,6 +92,27 @@ export default function ProgressPage() {
                           {formatDuration(session.durationSeconds)}
                         </span>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const jour = new Date(session.startedAt).toLocaleDateString(
+                            "fr-FR",
+                            dateLongue
+                          );
+                          const sur = window.confirm(
+                            `Supprimer la séance ${session.dayCode} du ${jour} ?\n\n` +
+                              "Elle disparaîtra de l'historique et de la progression, " +
+                              "sur tous tes appareils. C'est définitif."
+                          );
+                          if (sur) removeSession(session.id);
+                        }}
+                        aria-label={`Supprimer la séance ${session.dayCode} du ${new Date(
+                          session.startedAt
+                        ).toLocaleDateString("fr-FR", dateLongue)}`}
+                        className="rounded-md border border-border px-2 py-1 text-[0.75rem] text-muted transition hover:border-neg hover:text-neg"
+                      >
+                        Supprimer
+                      </button>
                     </div>
                   </div>
                 );

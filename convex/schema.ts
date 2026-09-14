@@ -65,6 +65,13 @@ export default defineSchema({
      * lignes sans ce champ restent valides.
      */
     logId: v.optional(v.string()),
+    /*
+     * Date de suppression. La ligne survit à la suppression, vidée de son
+     * journal : il ne reste qu'un identifiant, de quoi dire aux autres
+     * appareils que la séance a disparu. Effacer la ligne entière la ferait
+     * revenir dès qu'un appareil resté hors ligne remonterait sa copie.
+     */
+    deletedAt: v.optional(v.number()),
   })
     .index("by_subject", ["subject"])
     .index("by_subject_and_date", ["subject", "completedAt"])

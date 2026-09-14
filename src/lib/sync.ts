@@ -14,6 +14,7 @@ import { decideProgramSync } from "@/lib/mergeProgram";
 import { repairStrings } from "@/lib/repairProgram";
 import {
   activitiesStore,
+  deletedWorkoutsStore,
   goalStore,
   historyStore,
   neatStore,
@@ -42,9 +43,11 @@ export function useSync(): void {
   const remoteProgram = useQuery(api.programs.get, isAuthenticated ? {} : "skip");
   const remoteProfile = useQuery(api.profiles.get, isAuthenticated ? {} : "skip");
   const remoteWorkouts = useQuery(api.workouts.list, isAuthenticated ? {} : "skip");
+  const remoteRemoved = useQuery(api.workouts.removed, isAuthenticated ? {} : "skip");
   const saveProgram = useMutation(api.programs.save);
   const saveProfile = useMutation(api.profiles.save);
   const saveWorkout = useMutation(api.workouts.save);
+  const removeWorkout = useMutation(api.workouts.remove);
 
   const localProgram = programStore.useValue();
   const localProfile = profileStore.useValue();
@@ -52,6 +55,7 @@ export function useSync(): void {
   const localNeat = neatStore.useValue();
   const localGoal = goalStore.useValue();
   const localHistory = historyStore.useValue();
+  const localDeleted = deletedWorkoutsStore.useValue();
 
   // Les installations d'avant l'horodatage déclarent leur programme récent,
   // une fois, pour qu'il remonte au lieu d'être écrasé. Dans un effet : écrire
@@ -111,13 +115,26 @@ export function useSync(): void {
    * Une séance terminée ne change plus : il n'y a donc rien à arbitrer, ce qui
    * manque d'un côté est simplement ajouté. C'est plus sûr que la règle du
    * programme, où deux versions du même objet peuvent s'affronter.
+   *
+   * Seule la suppression échappe à cette symétrie : une absence ne se distingue
+   * pas d'une séance jamais reçue. Les deux côtés tiennent donc la liste de ce
+   * qui a été supprimé, et c'est elle qui circule.
    */
   useEffect(() => {
-    if (!isAuthenticated || remoteWorkouts === undefined) return;
+    if (!isAuthenticated || remoteWorkouts === undefined || remoteRemoved === undefined) return;
 
     const distantes = (parseHistory(remoteWorkouts) ?? []) as SessionLog[];
-    const { toStore, toPush } = mergeWorkouts(localHistory, distantes);
+    const { toStore, toPush, toRemove, toForget } = mergeWorkouts(
+      localHistory,
+      distantes,
+      localDeleted,
+      remoteRemoved
+    );
 
+    if (toForget.length) {
+      deletedWorkoutsStore.set([...localDeleted, ...toForget]);
+      return;
+    }
     if (toStore) {
       historyStore.set(toStore);
       return;
@@ -127,7 +144,20 @@ export function useSync(): void {
         // Hors ligne : on retentera au prochain changement ou à l'ouverture.
       });
     }
-  }, [isAuthenticated, localHistory, remoteWorkouts, saveWorkout]);
+    for (const id of toRemove) {
+      void removeWorkout({ logId: id }).catch(() => {
+        // Hors ligne : la séance reste inscrite au registre, l'ordre repartira.
+      });
+    }
+  }, [
+    isAuthenticated,
+    localDeleted,
+    localHistory,
+    remoteRemoved,
+    remoteWorkouts,
+    removeWorkout,
+    saveWorkout,
+  ]);
 
   // --- remontée du profil : les mensurations, le reste vient du jeton
   useEffect(() => {

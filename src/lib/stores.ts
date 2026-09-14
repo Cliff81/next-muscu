@@ -82,6 +82,22 @@ export const historyStore = createLocalStore<SessionLog[]>("muscu:history", [], 
 );
 export const activeSessionStore = createLocalStore<SessionLog | null>("muscu:activeSession", null);
 
+/**
+ * Séances supprimées, gardées par leur identifiant.
+ *
+ * L'historique se synchronise par union : sans ce registre, une séance effacée
+ * ici redescendrait de Convex au passage suivant. Il tient aussi l'ordre de
+ * suppression jusqu'au retour du réseau.
+ */
+export const deletedWorkoutsStore = createLocalStore<string[]>(
+  "muscu:deletedWorkouts",
+  [],
+  (valeur) =>
+    Array.isArray(valeur) && valeur.every((id) => typeof id === "string")
+      ? (valeur as string[])
+      : null
+);
+
 /** Sports pratiqués en plus du programme, saisis par la personne. */
 export const activitiesStore = createLocalStore<Activity[]>("muscu:activities", [], (value) => {
   const r = activitiesSchema.safeParse(value);
