@@ -75,9 +75,12 @@ export default function RootLayout({
           d'exécuter un script rendu dans un composant.
         */}
         <Script id="visage" strategy="beforeInteractive">
-          {"(function(){var p=location.pathname;" +
-            "document.documentElement.dataset.mode=" +
-            "p.indexOf('/nutrition')===0?'healthier':p.indexOf('/progress')===0?'better':'stronger';})()"}
+          {"(function(){var p=location.pathname,d=document.documentElement;" +
+            "var m=p.indexOf('/nutrition')===0?'healthier':p.indexOf('/progress')===0?'better':'stronger';" +
+            "d.dataset.mode=m;" +
+            // La nuance sombre de Nutrition se lit dans les réglages locaux, pour
+            // la même raison : sans elle, la page s'ouvrirait en blanc une image.
+            "try{if(m==='healthier'&&JSON.parse(localStorage.getItem('muscu:settings')||'{}').nutritionTheme==='dark')d.dataset.shade='dark';}catch(e){}})()"}
         </Script>
         <ConvexClient>
           <ModeBridge />

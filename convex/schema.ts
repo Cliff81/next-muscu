@@ -41,6 +41,7 @@ export default defineSchema({
     activities: v.optional(v.any()),
     neat: v.optional(v.string()),
     goal: v.optional(v.string()),
+    settings: v.optional(v.any()),
   }).index("by_subject", ["subject"]),
 
   programs: defineTable({

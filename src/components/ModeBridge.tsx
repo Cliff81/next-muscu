@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useLayoutEffect } from "react";
+import { settingsStore } from "@/lib/stores";
 
 export type Mode = "stronger" | "healthier" | "better";
 
@@ -20,6 +21,8 @@ const THEME_COLORS: Record<Mode, string> = {
   healthier: "#f6f8f4",
   better: "#0c1020",
 };
+/** Nutrition en sombre : même visage, autre nuance. */
+const HEALTHIER_DARK = "#0d1411";
 
 /**
  * Sur le serveur, il n'y a pas de mise en page à mesurer : l'effet de
@@ -42,14 +45,19 @@ const useAvantPeinture = typeof window === "undefined" ? useEffect : useLayoutEf
  */
 export function ModeBridge() {
   const path = usePathname();
+  const sombre = settingsStore.useValue().nutritionTheme === "dark";
 
   useAvantPeinture(() => {
     const mode = modeFor(path);
-    document.documentElement.dataset.mode = mode;
+    const racine = document.documentElement;
+    racine.dataset.mode = mode;
+    // La nuance ne concerne que Nutrition ; ailleurs l'attribut n'a rien à dire.
+    if (mode === "healthier" && sombre) racine.dataset.shade = "dark";
+    else delete racine.dataset.shade;
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", THEME_COLORS[mode]);
-  }, [path]);
+      ?.setAttribute("content", mode === "healthier" && sombre ? HEALTHIER_DARK : THEME_COLORS[mode]);
+  }, [path, sombre]);
 
   return null;
 }

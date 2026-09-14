@@ -20,6 +20,7 @@ import {
   parseLibrary,
   setLibraryFromRemote,
 } from "@/lib/programLibrary";
+import { DEFAULT_SETTINGS, parseSettings, sameSettings } from "@/lib/settings";
 import { decideTrophySync, type Engraved } from "@/lib/trophies";
 import { repairStrings } from "@/lib/repairProgram";
 import {
@@ -33,6 +34,7 @@ import {
   programStore,
   programTouchedAt,
   seedProgramTimestamp,
+  settingsStore,
   trophyStore,
 } from "@/lib/stores";
 import type { Program, SessionLog } from "@/lib/types";
@@ -73,6 +75,7 @@ export function useSync(): void {
   const localActivities = activitiesStore.useValue();
   const localNeat = neatStore.useValue();
   const localGoal = goalStore.useValue();
+  const localSettings = settingsStore.useValue();
   const localHistory = historyStore.useValue();
   const localDeleted = deletedWorkoutsStore.useValue();
   const localTrophies = trophyStore.useValue();
@@ -129,6 +132,15 @@ export function useSync(): void {
     if (GOALS.some((g) => g.id === remoteProfile.goal)) {
       goalStore.set(remoteProfile.goal as Goal);
     }
+  }, [isAuthenticated, remoteProfile]);
+
+  // --- descente des réglages : uniquement si les réglages d'ici sont encore
+  // ceux par défaut, pour la même raison que les sports.
+  useEffect(() => {
+    if (!isAuthenticated || !remoteProfile) return;
+    if (!sameSettings(settingsStore.get(), DEFAULT_SETTINGS)) return;
+    const distants = parseSettings(remoteProfile.settings);
+    if (distants && !sameSettings(distants, DEFAULT_SETTINGS)) settingsStore.set(distants);
   }, [isAuthenticated, remoteProfile]);
 
   /*
@@ -249,7 +261,8 @@ export function useSync(): void {
       remoteProfile.experience === localProfile.experience &&
       remoteProfile.neat === localNeat &&
       remoteProfile.goal === localGoal &&
-      JSON.stringify(remoteProfile.activities ?? []) === JSON.stringify(localActivities);
+      JSON.stringify(remoteProfile.activities ?? []) === JSON.stringify(localActivities) &&
+      sameSettings(parseSettings(remoteProfile.settings) ?? DEFAULT_SETTINGS, localSettings);
     if (memes) return;
     void saveProfile({
       heightCm: localProfile.heightCm,
@@ -260,8 +273,18 @@ export function useSync(): void {
       activities: localActivities,
       neat: localNeat,
       goal: localGoal,
+      settings: localSettings,
     }).catch(() => {
       // Hors ligne : sans effet, on retentera.
     });
-  }, [isAuthenticated, localActivities, localGoal, localNeat, localProfile, remoteProfile, saveProfile]);
+  }, [
+    isAuthenticated,
+    localActivities,
+    localGoal,
+    localNeat,
+    localProfile,
+    localSettings,
+    remoteProfile,
+    saveProfile,
+  ]);
 }

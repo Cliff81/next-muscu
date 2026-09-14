@@ -11,7 +11,47 @@ export type WeightPoint = {
   label: string;
   maxWeight: number;
   avgWeight: number;
+  /** Maximum estimé sur une répétition, formule d'Epley. */
+  oneRepMax: number;
 };
+
+/**
+ * Maximum estimé sur une répétition, d'après une série : Epley,
+ * 1RM = charge × (1 + répétitions / 30).
+ *
+ * C'est ce qui rend comparables 5 × 100 et 8 × 90 — la charge seule ne le
+ * permet pas. Au-delà de douze répétitions, la formule s'égare : on s'arrête là.
+ * Une répétition rend la charge elle-même.
+ */
+export function epley(weight: number, reps: number): number | null {
+  if (!(weight > 0) || !Number.isInteger(reps) || reps < 1 || reps > 12) return null;
+  // La formule donne 103 % de la charge pour une seule répétition : un 1RM
+  // estimé au-dessus de ce qu'on vient de soulever une fois n'a pas de sens.
+  if (reps === 1) return weight;
+  return Math.round(weight * (1 + reps / 30) * 10) / 10;
+}
+
+export type OneRepMax = { value: number; weight: number; reps: number; date: string };
+
+/** Le meilleur 1RM estimé d'un exercice sur tout l'historique, et la série qui le fonde. */
+export function bestOneRepMax(history: SessionLog[], exerciseName: string): OneRepMax | null {
+  let meilleur: OneRepMax | null = null;
+  for (const seance of history) {
+    if (!seance.finishedAt) continue;
+    for (const exercice of seance.exercises) {
+      if (exercice.exerciseName !== exerciseName) continue;
+      for (const serie of exercice.sets) {
+        if (!serie.completed || serie.weight === null) continue;
+        const reps = Number.parseInt(serie.reps, 10);
+        const estime = epley(serie.weight, reps);
+        if (estime !== null && (meilleur === null || estime > meilleur.value)) {
+          meilleur = { value: estime, weight: serie.weight, reps, date: seance.finishedAt };
+        }
+      }
+    }
+  }
+  return meilleur;
+}
 
 export function weightProgressionFor(history: SessionLog[], exerciseName: string): WeightPoint[] {
   return history
@@ -19,19 +59,24 @@ export function weightProgressionFor(history: SessionLog[], exerciseName: string
     .map((s) => {
       const exercise = s.exercises.find((e) => e.exerciseName === exerciseName);
       if (!exercise) return null;
-      const weights = exercise.sets
-        .filter((set) => set.completed)
-        .map((set) => set.weight)
-        .filter((w): w is number => w != null && w > 0);
+      const faites = exercise.sets.filter((set) => set.completed && set.weight != null && set.weight > 0);
+      const weights = faites.map((set) => set.weight as number);
       if (weights.length === 0) return null;
       const max = Math.max(...weights);
       const avg = weights.reduce((a, b) => a + b, 0) / weights.length;
+      // Le meilleur 1RM de la séance ; à défaut de série éligible, la charge max
+      // elle-même — la courbe ne doit pas avoir de trou.
+      const oneRepMax = faites.reduce((m, set) => {
+        const e = epley(set.weight as number, Number.parseInt(set.reps, 10));
+        return e !== null && e > m ? e : m;
+      }, max);
       const date = s.finishedAt as string;
       return {
         date,
         label: new Date(date).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }),
         maxWeight: max,
         avgWeight: Math.round(avg * 10) / 10,
+        oneRepMax,
       };
     })
     .filter((p): p is WeightPoint => p !== null)

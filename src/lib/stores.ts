@@ -7,6 +7,7 @@ import { createLocalStore } from "@/lib/createLocalStore";
 import { programSchema } from "@/lib/programSchema";
 import { repairStrings } from "@/lib/repairProgram";
 import { parseOutings, type Outing } from "@/lib/outings";
+import { DEFAULT_SETTINGS, parseSettings, type Settings } from "@/lib/settings";
 import { parseEngraved, type Engraved } from "@/lib/trophies";
 import type { Program, SessionLog } from "@/lib/types";
 
@@ -108,6 +109,9 @@ export const outingsStore = {
     outingsTouchedAt.set(updatedAt);
   },
 };
+
+/** Réglages — voir `settings.ts`. Suivent le profil vers Convex. */
+export const settingsStore = createLocalStore<Settings>("muscu:settings", DEFAULT_SETTINGS, parseSettings);
 
 /**
  * Hauts faits gravés — voir `trophies.ts`. Le registre fait foi : une séance

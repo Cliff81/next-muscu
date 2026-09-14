@@ -6,15 +6,24 @@ import { DayTabs } from "@/components/DayTabs";
 import { Header } from "@/components/Header";
 import { addDay, removeDay } from "@/lib/editProgram";
 import { activeSessionStore, programStore } from "@/lib/stores";
+import { useHistory } from "@/lib/useHistory";
 import { useProgram } from "@/lib/useProgram";
+import { weekStatus } from "@/lib/week";
 
 export default function Home() {
   const { program } = useProgram();
-  const [activeIndex, setActiveIndex] = useState(0);
+  const { history } = useHistory();
   const [editing, setEditing] = useState(false);
 
-  const index = Math.min(activeIndex, program.days.length - 1);
+  const status = weekStatus(program.days, history);
+  // Tant qu'on n'a rien choisi, la journée affichée est la prochaine à faire :
+  // ouvrir l'application, c'est tomber sur la séance du jour. Dérivé plutôt
+  // que posé dans un effet — l'historique arrive après la première image.
+  const [chosen, setChosen] = useState<number | null>(null);
+  const nextIndex = Math.max(0, program.days.findIndex((d) => d.id === status.next));
+  const index = Math.min(chosen ?? nextIndex, program.days.length - 1);
   const activeDay = program.days[index];
+  const setActiveIndex = setChosen;
 
   const onAddDay = () => {
     const { program: next } = addDay(program);
@@ -45,12 +54,15 @@ export default function Home() {
           editing={editing}
           onToggleEditing={() => setEditing((on) => !on)}
           onAddDay={onAddDay}
+          status={status}
         />
         {activeDay && (
           <DayPanel
             day={activeDay}
             editing={editing}
             onRemoveDay={program.days.length > 1 ? onRemoveDay : undefined}
+            doneAt={status.done.get(activeDay.id) ?? null}
+            isNext={status.next === activeDay.id}
           />
         )}
       </div>

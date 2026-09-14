@@ -33,6 +33,8 @@ const MEASUREMENTS = {
   activities: v.optional(v.any()),
   neat: v.optional(v.string()),
   goal: v.optional(v.string()),
+  /** Réglages de l'application, décrits côté client par `settings.ts`. */
+  settings: v.optional(v.any()),
 };
 
 /**

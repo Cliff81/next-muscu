@@ -5,6 +5,7 @@ import { onboardingStore } from "@/lib/onboarding";
 import { profileStore, type Profile } from "@/lib/profile";
 import { archiveProgram, libraryStore } from "@/lib/programLibrary";
 import { LibraryPanel } from "@/components/LibraryPanel";
+import { SettingsPanel } from "@/components/SettingsPanel";
 import { SharePanel } from "@/components/SharePanel";
 import { notify } from "@/lib/toast";
 import { tokenStore } from "@/lib/googleToken";
@@ -16,6 +17,7 @@ export function ProfileMenu({ profile }: { profile: Profile }) {
   const [open, setOpen] = useState(false);
   const [library, setLibrary] = useState(false);
   const [share, setShare] = useState(false);
+  const [settings, setSettings] = useState(false);
   const { program } = useProgram();
   const gardes = libraryStore.useValue();
   // Un programme déjà rangé n'a pas à être proposé une seconde fois : le garder
@@ -82,6 +84,15 @@ export function ProfileMenu({ profile }: { profile: Profile }) {
             </Item>
 
             <Separator />
+            <Item
+              onClick={() => {
+                setOpen(false);
+                setSettings(true);
+              }}
+            >
+              Réglages
+            </Item>
+            <Separator />
             <SyncStatus profile={profile} />
             <Separator />
             <Item
@@ -110,6 +121,7 @@ export function ProfileMenu({ profile }: { profile: Profile }) {
 
       {library ? <LibraryPanel onClose={() => setLibrary(false)} /> : null}
       {share ? <SharePanel program={program} onClose={() => setShare(false)} /> : null}
+      {settings ? <SettingsPanel onClose={() => setSettings(false)} /> : null}
     </>
   );
 }

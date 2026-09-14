@@ -37,9 +37,15 @@ type Props = {
   day: Day;
   editing?: boolean;
   onRemoveDay?: () => void;
+  /** Date de la séance faite cette semaine sur cette journée, s'il y en a une. */
+  doneAt?: string | null;
+  isNext?: boolean;
 };
 
-export function DayPanel({ day, editing = false, onRemoveDay }: Props) {
+const leJour = (iso: string) =>
+  new Date(iso).toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" });
+
+export function DayPanel({ day, editing = false, onRemoveDay, doneAt = null, isNext = false }: Props) {
   const activeSession = activeSessionStore.useValue();
   const hasActiveSession = Boolean(
     activeSession && activeSession.dayId === day.id && !activeSession.finishedAt
@@ -88,6 +94,11 @@ export function DayPanel({ day, editing = false, onRemoveDay }: Props) {
               <p className="mt-1 text-[0.85rem] text-muted">{day.description}</p>
             </>
           )}
+          {!editing && (doneAt || isNext) && (
+            <div className={`mt-2 text-[0.78rem] ${doneAt ? "text-pos" : "text-accent"}`}>
+              {doneAt ? `✓ Faite ${leJour(doneAt)}` : "▸ Prochaine séance"}
+            </div>
+          )}
           <div className="mt-2 flex flex-wrap gap-1.5">
             {day.muscleTags.map((tag) => (
               <span
@@ -114,7 +125,7 @@ export function DayPanel({ day, editing = false, onRemoveDay }: Props) {
             href={`/session/${day.id}`}
             className="shrink-0 rounded-md bg-accent px-4 py-3 text-center text-sm font-bold text-bg transition hover:opacity-90"
           >
-            {hasActiveSession ? "Reprendre la séance ▸" : "Démarrer la séance ▸"}
+            {hasActiveSession ? "Reprendre la séance ▸" : doneAt ? "Refaire la séance ▸" : "Démarrer la séance ▸"}
           </Link>
         )}
       </div>

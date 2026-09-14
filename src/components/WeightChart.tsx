@@ -47,6 +47,17 @@ export function WeightChart({ points }: { points: WeightPoint[] }) {
             strokeWidth={2}
             dot={{ r: 3, fill: "#ff4d1c" }}
           />
+          {/* Le 1RM estimé rend comparables des séries de longueurs différentes ;
+              en pointillé, c'est une estimation et non une charge soulevée. */}
+          <Line
+            type="monotone"
+            dataKey="oneRepMax"
+            name="1RM estimé (kg)"
+            stroke="#9aa4b5"
+            strokeWidth={1.5}
+            strokeDasharray="4 4"
+            dot={false}
+          />
         </LineChart>
       </ResponsiveContainer>
     </div>

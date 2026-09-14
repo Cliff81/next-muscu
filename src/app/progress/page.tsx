@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Achievements } from "@/components/Achievements";
 import { WeightChart } from "@/components/WeightChart";
-import { distinctExerciseNames, weightProgressionFor } from "@/lib/progressData";
+import { bestOneRepMax, distinctExerciseNames, weightProgressionFor } from "@/lib/progressData";
+import { kilos } from "@/lib/format";
 import { formatDuration, sessionProgress } from "@/lib/session";
 import { useHistory } from "@/lib/useHistory";
 
@@ -28,6 +29,10 @@ export default function ProgressPage() {
       : (exerciseNames[0] ?? null);
   const points = useMemo(
     () => (activeExercise ? weightProgressionFor(history, activeExercise) : []),
+    [history, activeExercise]
+  );
+  const record = useMemo(
+    () => (activeExercise ? bestOneRepMax(history, activeExercise) : null),
     [history, activeExercise]
   );
 
@@ -68,6 +73,14 @@ export default function ProgressPage() {
               </select>
             )}
             <WeightChart points={points} />
+            {record && (
+              <p className="mt-3 text-[0.8rem] text-muted">
+                <span className="font-display text-lg text-accent">1RM estimé {kilos(record.value)}</span>
+                {" "}— d&apos;après {record.reps} × {kilos(record.weight)} le{" "}
+                {new Date(record.date).toLocaleDateString("fr-FR", dateLongue)}. Formule
+                d&apos;Epley : une estimation, pas une charge à tenter à froid.
+              </p>
+            )}
           </section>
 
           <section className="mt-10">

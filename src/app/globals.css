@@ -93,6 +93,37 @@
 }
 
 /*
+ * Nutrition en sombre, sur demande — voir le réglage « nutritionTheme ».
+ *
+ * Le visage reste Healthier (logo, mots, accent vert) : seule la nuance change,
+ * posée dans un second attribut pour ne pas multiplier les modes. Une pièce
+ * sombre et un écran blanc ne font pas bon ménage ; la palette claire reste
+ * celle d'origine pour qui la préfère.
+ */
+:root[data-mode="healthier"][data-shade="dark"] {
+  color-scheme: dark;
+
+  --bg: #0d1411;
+  --surface: #141d18;
+  --surface2: #1b2620;
+  --surface3: #24322a;
+  --border: #1f2d25;
+  --border2: #34493d;
+  --text: #e6efe9;
+  --muted: #9db0a3;
+  --accent: #4fd08a;
+  --accent-fg: #0d1411;
+  --accent2: #f0a070;
+  --pos: #5fe0a0;
+  --warn: #f5b93f;
+  --neg: #ff7a6b;
+  --accent-soft: #16301f;
+  --pos-soft: #12251c;
+  --neg-soft: #2a1815;
+  --calm-soft: #16211b;
+}
+
+/*
  * Pas de transition sur le basculement d'un visage à l'autre.
  *
  * Le `body` était seul à s'animer sur 0,25 s : tout le reste — surfaces,

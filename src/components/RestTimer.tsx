@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { playBeep } from "@/lib/beep";
+import { playBeep, playPreAlert } from "@/lib/beep";
 import { notifyRestOver } from "@/lib/notify";
+import { settingsStore } from "@/lib/stores";
 
 type Props = {
   totalSeconds: number;
@@ -28,10 +29,12 @@ export function RestTimer({ totalSeconds, label, onFinish, onSkip }: Props) {
   const [deadline, setDeadline] = useState(() => Date.now() + totalSeconds * 1000);
   const [remaining, setRemaining] = useState(totalSeconds);
   const fired = useRef(false);
+  const prevenu = useRef(false);
   const onFinishRef = useRef(onFinish);
   useEffect(() => {
     onFinishRef.current = onFinish;
   });
+  const { preAlert, sound, vibrate } = settingsStore.useValue();
 
   useEffect(() => {
     let timer = 0;
@@ -39,6 +42,13 @@ export function RestTimer({ totalSeconds, label, onFinish, onSkip }: Props) {
     const tick = () => {
       const reste = Math.ceil((deadline - Date.now()) / 1000);
       setRemaining(reste);
+      // Pré-alerte : un seul signal, plus doux, N secondes avant la fin — le
+      // temps de se relever. Pas si le repos entier est plus court que N : le
+      // signal partirait avec le repos, sans rien prévenir.
+      if (preAlert > 0 && reste > 0 && reste <= preAlert && !prevenu.current && totalSeconds > preAlert) {
+        prevenu.current = true;
+        playPreAlert({ sound, vibrate });
+      }
       if (reste > 0) {
         // On se recale sur la seconde suivante plutôt que sur un pas fixe :
         // l'affichage ne dérive pas au fil des minutes.
@@ -47,7 +57,7 @@ export function RestTimer({ totalSeconds, label, onFinish, onSkip }: Props) {
       }
       if (fired.current) return;
       fired.current = true;
-      playBeep();
+      playBeep({ sound, vibrate });
       void notifyRestOver(`${label} — c'est reparti.`);
       onFinishRef.current();
     };
@@ -66,7 +76,7 @@ export function RestTimer({ totalSeconds, label, onFinish, onSkip }: Props) {
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [deadline, label]);
+  }, [deadline, label, preAlert, sound, vibrate, totalSeconds]);
 
   const clamped = Math.max(0, remaining);
   const minutes = Math.floor(clamped / 60);
@@ -91,7 +101,10 @@ export function RestTimer({ totalSeconds, label, onFinish, onSkip }: Props) {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => setDeadline((d) => d + 15000)}
+            onClick={() => {
+              prevenu.current = false;
+              setDeadline((d) => d + 15000);
+            }}
             className="rounded-md border border-border px-3 py-2 text-xs text-text transition hover:border-accent"
           >
             +15s
