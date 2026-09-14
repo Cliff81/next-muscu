@@ -3,47 +3,50 @@
 import { useMemo } from "react";
 import {
   FAMILY_LABELS,
-  evaluateAchievements,
+  LADDERS,
+  TIER_COUNT,
+  evaluateLadders,
+  quantity,
+  tierLabel,
   type Family,
-  type Progress,
+  type LadderProgress,
 } from "@/lib/achievements";
 import { profileStore } from "@/lib/profile";
 import type { SessionLog } from "@/lib/types";
 
 const FAMILIES: Family[] = ["assiduite", "volume", "force", "rigueur"];
 
-const compte = (valeur: number) => Math.round(valeur).toLocaleString("fr-FR");
-
-const leJour = (iso: string) =>
+export const leJour = (iso: string) =>
   new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
 /**
  * Hauts faits.
  *
- * Déduits de l'historique à chaque affichage — voir `achievements.ts`. Ceux que
- * la dernière séance vient de débloquer portent une pastille : c'est le seul
- * moment où l'on peut le dire sans rien avoir stocké, puisque la date de
- * déblocage est celle d'une séance connue.
+ * Déduits de l'historique à chaque affichage — voir `achievements.ts`. Les
+ * paliers ouverts par la dernière séance portent une pastille : c'est possible
+ * sans rien avoir stocké, la date d'un palier étant celle d'une séance connue.
  */
 export function Achievements({ history }: { history: SessionLog[] }) {
   const profile = profileStore.useValue();
   const poids = profile?.weightKg ?? null;
 
-  const etats = useMemo(() => evaluateAchievements(history, poids), [history, poids]);
+  const etats = useMemo(() => evaluateLadders(history, poids), [history, poids]);
   const derniere = useMemo(() => {
     const finies = history.filter((s) => s.finishedAt !== null).map((s) => s.finishedAt as string);
     return finies.length ? finies.reduce((a, b) => (a > b ? a : b)) : null;
   }, [history]);
 
-  const debloques = etats.filter((e) => e.unlockedAt !== null).length;
-  const part = Math.round((debloques / etats.length) * 100);
+  const franchis = etats.reduce((n, e) => n + e.level, 0);
+  const part = Math.round((franchis / TIER_COUNT) * 100);
 
   return (
     <section className="mt-10">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-display text-2xl text-accent2">Hauts faits</h2>
         <span className="text-[0.8rem] text-muted">
-          <span className="font-display text-lg text-accent">{debloques}</span> / {etats.length}
+          <span className="font-display text-lg text-accent">{franchis}</span> / {TIER_COUNT} paliers
+          {" · "}
+          {LADDERS.length} hauts faits
         </span>
       </div>
       <div className="mb-6 h-1.5 w-full overflow-hidden rounded-full bg-surface2">
@@ -55,15 +58,14 @@ export function Achievements({ history }: { history: SessionLog[] }) {
           <h3 className="mb-2 text-[0.7rem] tracking-[0.15em] text-muted uppercase">
             {FAMILY_LABELS[famille]}
           </h3>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-2">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-2">
             {etats
-              .filter((e) => e.achievement.family === famille)
+              .filter((e) => e.ladder.family === famille)
               .map((etat) => (
                 <Carte
-                  key={etat.achievement.id}
+                  key={etat.ladder.id}
                   etat={etat}
-                  nouveau={etat.unlockedAt !== null && etat.unlockedAt === derniere}
-                  jour={leJour}
+                  nouveau={derniere !== null && etat.unlockedAt.includes(derniere)}
                 />
               ))}
           </div>
@@ -73,54 +75,57 @@ export function Achievements({ history }: { history: SessionLog[] }) {
   );
 }
 
-function Carte({
-  etat,
-  nouveau,
-  jour,
-}: {
-  etat: Progress;
-  nouveau: boolean;
-  jour: (iso: string) => string;
-}) {
-  const { achievement, value, unlockedAt } = etat;
-  const debloque = unlockedAt !== null;
-  const avancement = Math.min(100, Math.round((value / achievement.target) * 100));
-  // Un haut fait sans unité se tient ou ne se tient pas : afficher « 0 / 1 »
-  // n'apprendrait rien.
-  const chiffre = achievement.unit
-    ? `${compte(Math.min(value, achievement.target))} / ${compte(achievement.target)} ${achievement.unit}`
-    : null;
+function Carte({ etat, nouveau }: { etat: LadderProgress; nouveau: boolean }) {
+  const { ladder, value, level, unlockedAt, next } = etat;
+  const commence = level > 0;
+  const avancement = next === null ? 100 : Math.min(100, Math.round((value / next) * 100));
+  const dernier = commence ? unlockedAt[level - 1] : null;
+  const echelons = ladder.tiers.length;
 
   return (
     <div
       className={`flex items-start gap-3 rounded-lg border p-3 transition ${
-        debloque ? "border-accent/40 bg-surface" : "border-border bg-surface/60"
+        commence ? "border-accent/40 bg-surface" : "border-border bg-surface/60"
       }`}
     >
-      <span className={`text-2xl leading-none ${debloque ? "" : "opacity-40 grayscale"}`} aria-hidden>
-        {achievement.icon}
+      <span className={`text-2xl leading-none ${commence ? "" : "opacity-40 grayscale"}`} aria-hidden>
+        {ladder.icon}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className={`text-[0.9rem] font-medium ${debloque ? "" : "text-muted"}`}>
-            {achievement.name}
+          <span className={`text-[0.9rem] font-medium ${commence ? "" : "text-muted"}`}>
+            {ladder.name}
           </span>
+          {echelons > 1 && (
+            <span className="rounded-full border border-border px-1.5 py-0.5 text-[0.6rem] text-muted">
+              {level} / {echelons}
+            </span>
+          )}
           {nouveau && (
             <span className="rounded-full bg-accent px-1.5 py-0.5 text-[0.6rem] font-bold tracking-[0.08em] text-bg uppercase">
               Nouveau
             </span>
           )}
         </div>
-        <div className="mt-0.5 text-[0.72rem] text-muted">{achievement.description}</div>
-        {debloque ? (
-          <div className="mt-1 text-[0.7rem] text-accent">Débloqué le {jour(unlockedAt)}</div>
-        ) : (
+        <div className="mt-0.5 text-[0.72rem] text-muted">{ladder.description}</div>
+
+        {next !== null ? (
           <>
             <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-surface2">
               <div className="h-full rounded-full bg-accent2/70" style={{ width: `${avancement}%` }} />
             </div>
-            {chiffre && <div className="mt-1 text-[0.68rem] text-muted">{chiffre}</div>}
+            <div className="mt-1 text-[0.68rem] text-muted">
+              {ladder.unit ? `${quantity(value)} / ${tierLabel(ladder, next)}` : "Pas encore fait"}
+            </div>
           </>
+        ) : (
+          <div className="mt-1 text-[0.7rem] text-accent">Échelle terminée 🏆</div>
+        )}
+
+        {dernier && (
+          <div className="mt-1 text-[0.68rem] text-accent/80">
+            {tierLabel(ladder, ladder.tiers[level - 1])} · le {leJour(dernier)}
+          </div>
         )}
       </div>
     </div>

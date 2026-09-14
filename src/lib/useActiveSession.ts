@@ -38,9 +38,10 @@ export function useActiveSession(day: Day) {
     activeSessionStore.set(next);
   }, []);
 
-  const finish = useCallback(() => {
+  /** Rend la séance enregistrée, pour que l'appelant puisse en faire le bilan. */
+  const finish = useCallback((): SessionLog | null => {
     const current = activeSessionStore.get();
-    if (!current) return;
+    if (!current) return null;
     const finishedAt = new Date().toISOString();
     const durationSeconds = Math.round(
       (new Date(finishedAt).getTime() - new Date(current.startedAt).getTime()) / 1000
@@ -48,6 +49,7 @@ export function useActiveSession(day: Day) {
     const finished: SessionLog = { ...current, finishedAt, durationSeconds };
     historyStore.set([...historyStore.get(), finished]);
     activeSessionStore.clear();
+    return finished;
   }, []);
 
   const abandon = useCallback(() => {

@@ -21,15 +21,23 @@ export const FAMILY_LABELS: Record<Family, string> = {
   rigueur: "Rigueur",
 };
 
-export type Achievement = {
+/**
+ * Un haut fait, avec ses paliers.
+ *
+ * Un même effort se poursuit : soulever 100 kg puis 200, tenir trois jours
+ * puis dix. Plutôt que des hauts faits séparés qui répètent le même libellé,
+ * un seul se gravit — ce qui donne toujours un « prochain » à annoncer.
+ */
+export type Ladder = {
   id: string;
   name: string;
   description: string;
   icon: string;
   family: Family;
-  target: number;
-  /** Unité du compteur, pour l'affichage de l'avancement. */
+  /** Unité du compteur. Absente pour un haut fait qui se tient ou non. */
   unit?: string;
+  /** Paliers croissants. */
+  tiers: number[];
   measure: (tally: Tally) => number;
 };
 
@@ -188,99 +196,145 @@ export function addSession(tally: Tally, log: SessionLog): void {
 const partDuPoids = (t: Tally): number =>
   t.weightKg && t.weightKg > 0 ? (t.chargeMax / t.weightKg) * 100 : 0;
 
-export const ACHIEVEMENTS: Achievement[] = [
+export const LADDERS: Ladder[] = [
   // --- assiduité
-  { id: "premier-pas", name: "Premier pas", description: "Terminer une première séance", icon: "🥇", family: "assiduite", target: 1, unit: "séance", measure: (t) => t.seances },
-  { id: "dix-seances", name: "Dans le rythme", description: "Dix séances au compteur", icon: "🎯", family: "assiduite", target: 10, unit: "séances", measure: (t) => t.seances },
-  { id: "vingt-cinq-seances", name: "Habitué", description: "Vingt-cinq séances au compteur", icon: "🎯", family: "assiduite", target: 25, unit: "séances", measure: (t) => t.seances },
-  { id: "cinquante-seances", name: "Pilier", description: "Cinquante séances au compteur", icon: "🏛️", family: "assiduite", target: 50, unit: "séances", measure: (t) => t.seances },
-  { id: "cent-seances", name: "Centenaire", description: "Cent séances au compteur", icon: "💯", family: "assiduite", target: 100, unit: "séances", measure: (t) => t.seances },
-  { id: "suite-3", name: "Trois d'affilée", description: "S'entraîner trois jours de suite", icon: "🔥", family: "assiduite", target: 3, unit: "jours", measure: (t) => t.meilleureSuiteJours },
-  { id: "suite-5", name: "Cinq d'affilée", description: "S'entraîner cinq jours de suite", icon: "🔥", family: "assiduite", target: 5, unit: "jours", measure: (t) => t.meilleureSuiteJours },
-  { id: "suite-7", name: "Semaine sans faute", description: "S'entraîner sept jours de suite", icon: "🌋", family: "assiduite", target: 7, unit: "jours", measure: (t) => t.meilleureSuiteJours },
-  { id: "semaines-4", name: "Mois tenu", description: "Quatre semaines de suite avec au moins une séance", icon: "📅", family: "assiduite", target: 4, unit: "semaines", measure: (t) => t.meilleureSuiteSemaines },
-  { id: "semaines-12", name: "Trimestre tenu", description: "Douze semaines de suite avec au moins une séance", icon: "🗓️", family: "assiduite", target: 12, unit: "semaines", measure: (t) => t.meilleureSuiteSemaines },
-  { id: "semaine-pleine", name: "Semaine pleine", description: "Cinq séances dans la même semaine", icon: "📆", family: "assiduite", target: 5, unit: "séances", measure: (t) => t.meilleureSemaine },
-  { id: "leve-tot", name: "Lève-tôt", description: "Commencer une séance avant 7 h", icon: "🌅", family: "assiduite", target: 1, measure: (t) => t.matinales },
-  { id: "noctambule", name: "Noctambule", description: "Commencer une séance après 21 h", icon: "🌙", family: "assiduite", target: 1, measure: (t) => t.nocturnes },
-  { id: "weekend", name: "Week-end actif", description: "Dix séances un samedi ou un dimanche", icon: "🛋️", family: "assiduite", target: 10, unit: "séances", measure: (t) => t.weekend },
-  { id: "retour", name: "Le retour", description: "Reprendre après deux semaines sans séance", icon: "↩️", family: "assiduite", target: 1, measure: (t) => (t.retour ? 1 : 0) },
+  { id: "seances", name: "Séances au compteur", description: "Chaque séance terminée compte", icon: "🎯", family: "assiduite", unit: "séances", tiers: [1, 10, 25, 50, 100, 250], measure: (t) => t.seances },
+  { id: "suite-jours", name: "Jours d'affilée", description: "S'entraîner sans sauter un jour", icon: "🔥", family: "assiduite", unit: "jours", tiers: [2, 3, 5, 7, 10, 14], measure: (t) => t.meilleureSuiteJours },
+  { id: "suite-semaines", name: "Semaines de suite", description: "Au moins une séance chaque semaine", icon: "📅", family: "assiduite", unit: "semaines", tiers: [2, 4, 8, 12, 26, 52], measure: (t) => t.meilleureSuiteSemaines },
+  { id: "semaine-pleine", name: "Séances dans une semaine", description: "Le plus gros volume sur sept jours", icon: "📆", family: "assiduite", unit: "séances", tiers: [3, 4, 5, 6], measure: (t) => t.meilleureSemaine },
+  { id: "weekend", name: "Séances le week-end", description: "Samedi ou dimanche à la salle", icon: "🛋️", family: "assiduite", unit: "séances", tiers: [1, 10, 25, 50], measure: (t) => t.weekend },
+  { id: "leve-tot", name: "Séances avant 7 h", description: "Commencer avant que le jour se lève", icon: "🌅", family: "assiduite", unit: "séances", tiers: [1, 5, 20], measure: (t) => t.matinales },
+  { id: "noctambule", name: "Séances après 21 h", description: "Finir quand les autres dorment", icon: "🌙", family: "assiduite", unit: "séances", tiers: [1, 5, 20], measure: (t) => t.nocturnes },
+  { id: "retour", name: "Le retour", description: "Reprendre après deux semaines sans séance", icon: "↩️", family: "assiduite", tiers: [1], measure: (t) => (t.retour ? 1 : 0) },
 
   // --- volume
-  { id: "tonne-1", name: "Une tonne", description: "Mille kilos déplacés en tout", icon: "🏋️", family: "volume", target: 1_000, unit: "kg", measure: (t) => t.tonnage },
-  { id: "tonne-10", name: "Dix tonnes", description: "Dix mille kilos déplacés en tout", icon: "🚜", family: "volume", target: 10_000, unit: "kg", measure: (t) => t.tonnage },
-  { id: "tonne-100", name: "Cent tonnes", description: "Cent mille kilos déplacés en tout", icon: "🚚", family: "volume", target: 100_000, unit: "kg", measure: (t) => t.tonnage },
-  { id: "tonne-500", name: "Cinq cents tonnes", description: "Un demi-million de kilos déplacés", icon: "🛳️", family: "volume", target: 500_000, unit: "kg", measure: (t) => t.tonnage },
-  { id: "reps-1000", name: "Mille répétitions", description: "Mille répétitions cochées", icon: "🔁", family: "volume", target: 1_000, unit: "reps", measure: (t) => t.repetitions },
-  { id: "reps-10000", name: "Dix mille répétitions", description: "Dix mille répétitions cochées", icon: "♾️", family: "volume", target: 10_000, unit: "reps", measure: (t) => t.repetitions },
-  { id: "series-100", name: "Cent séries", description: "Cent séries menées au bout", icon: "📚", family: "volume", target: 100, unit: "séries", measure: (t) => t.series },
-  { id: "series-1000", name: "Mille séries", description: "Mille séries menées au bout", icon: "🧱", family: "volume", target: 1_000, unit: "séries", measure: (t) => t.series },
+  { id: "tonnage", name: "Kilos déplacés", description: "Charge × répétitions, depuis le début", icon: "🏋️", family: "volume", unit: "kg", tiers: [1_000, 10_000, 50_000, 100_000, 500_000, 1_000_000], measure: (t) => t.tonnage },
+  { id: "repetitions", name: "Répétitions cochées", description: "Une par une, elles s'accumulent", icon: "🔁", family: "volume", unit: "reps", tiers: [100, 1_000, 5_000, 10_000, 50_000], measure: (t) => t.repetitions },
+  { id: "series", name: "Séries menées au bout", description: "Celles que tu as cochées", icon: "📚", family: "volume", unit: "séries", tiers: [50, 100, 500, 1_000, 5_000], measure: (t) => t.series },
 
   // --- force
-  { id: "record-1", name: "Premier record", description: "Battre sa charge sur un mouvement", icon: "💪", family: "force", target: 1, unit: "record", measure: (t) => t.recordsBattus },
-  { id: "record-10", name: "Dix records", description: "Battre sa charge dix fois", icon: "📈", family: "force", target: 10, unit: "records", measure: (t) => t.recordsBattus },
-  { id: "record-50", name: "Cinquante records", description: "Battre sa charge cinquante fois", icon: "🚀", family: "force", target: 50, unit: "records", measure: (t) => t.recordsBattus },
-  { id: "charge-60", name: "Soixante kilos", description: "Soixante kilos sur une série", icon: "🏋️‍♂️", family: "force", target: 60, unit: "kg", measure: (t) => t.chargeMax },
-  { id: "charge-100", name: "Les trois chiffres", description: "Cent kilos sur une série", icon: "💥", family: "force", target: 100, unit: "kg", measure: (t) => t.chargeMax },
-  { id: "poids-corps", name: "Son propre poids", description: "Soulever son poids de corps sur une série", icon: "⚖️", family: "force", target: 100, unit: "%", measure: partDuPoids },
-  { id: "poids-corps-150", name: "Une fois et demie", description: "Soulever une fois et demie son poids de corps", icon: "🗿", family: "force", target: 150, unit: "%", measure: partDuPoids },
-  { id: "poids-corps-200", name: "Le double", description: "Soulever deux fois son poids de corps", icon: "🦍", family: "force", target: 200, unit: "%", measure: partDuPoids },
+  { id: "charge", name: "Charge sur une série", description: "Le plus lourd que tu aies soulevé", icon: "💥", family: "force", unit: "kg", tiers: [20, 40, 60, 80, 100, 120, 150, 200], measure: (t) => t.chargeMax },
+  { id: "records", name: "Records battus", description: "Chaque fois que tu dépasses ta charge sur un mouvement", icon: "📈", family: "force", unit: "records", tiers: [1, 10, 25, 50, 100], measure: (t) => t.recordsBattus },
+  { id: "poids-corps", name: "Part du poids de corps", description: "Ta charge maximale rapportée à ton poids", icon: "⚖️", family: "force", unit: "%", tiers: [50, 100, 150, 200], measure: partDuPoids },
 
   // --- rigueur
-  { id: "sans-faute-1", name: "Sans faute", description: "Une séance dont toutes les séries sont cochées", icon: "✅", family: "rigueur", target: 1, unit: "séance", measure: (t) => t.seancesCompletes },
-  { id: "sans-faute-10", name: "Dix sans faute", description: "Dix séances menées entièrement au bout", icon: "🎖️", family: "rigueur", target: 10, unit: "séances", measure: (t) => t.seancesCompletes },
-  { id: "marathon", name: "Marathon", description: "Une séance de plus d'une heure trente", icon: "⏱️", family: "rigueur", target: 90, unit: "min", measure: (t) => Math.round(t.plusLongueSeance / 60) },
-  { id: "express", name: "Express", description: "Une séance complète en moins de trente minutes", icon: "⚡", family: "rigueur", target: 1, measure: (t) => (t.express ? 1 : 0) },
-  { id: "curieux", name: "Curieux", description: "Vingt mouvements différents essayés", icon: "🧭", family: "rigueur", target: 20, unit: "mouvements", measure: (t) => t.exercices.size },
-  { id: "explorateur", name: "Explorateur", description: "Cinquante mouvements différents essayés", icon: "🗺️", family: "rigueur", target: 50, unit: "mouvements", measure: (t) => t.exercices.size },
+  { id: "sans-faute", name: "Séances sans faute", description: "Toutes les séries cochées, sans exception", icon: "✅", family: "rigueur", unit: "séances", tiers: [1, 10, 25, 50], measure: (t) => t.seancesCompletes },
+  { id: "duree", name: "Plus longue séance", description: "Le jour où tu n'as pas compté ton temps", icon: "⏱️", family: "rigueur", unit: "min", tiers: [45, 60, 90, 120], measure: (t) => Math.round(t.plusLongueSeance / 60) },
+  { id: "express", name: "Express", description: "Une séance complète en moins de trente minutes", icon: "⚡", family: "rigueur", tiers: [1], measure: (t) => (t.express ? 1 : 0) },
+  { id: "mouvements", name: "Mouvements différents", description: "La variété de ce que tu as essayé", icon: "🧭", family: "rigueur", unit: "mouvements", tiers: [5, 20, 50, 100], measure: (t) => t.exercices.size },
 ];
 
-export type Progress = {
-  achievement: Achievement;
+/** Nombre total de paliers, tous hauts faits confondus. */
+export const TIER_COUNT = LADDERS.reduce((n, l) => n + l.tiers.length, 0);
+
+export type LadderProgress = {
+  ladder: Ladder;
   value: number;
-  /** Date de la séance qui a débloqué le haut fait, ou `null`. */
-  unlockedAt: string | null;
+  /** Paliers franchis. */
+  level: number;
+  /** Date de la séance qui a débloqué chaque palier, `null` s'il reste à faire. */
+  unlockedAt: (string | null)[];
+  /** Prochain palier à viser, `null` si l'échelle est finie. */
+  next: number | null;
 };
 
 /**
- * Passe l'historique en revue et rend l'état de chaque haut fait.
+ * Passe l'historique en revue et rend l'état de chaque échelle.
  *
- * Un seul parcours, dans l'ordre chronologique : la date de déblocage est
- * celle de la séance qui a fait basculer le compteur, et non celle du jour où
- * on regarde.
+ * Un seul parcours, dans l'ordre chronologique : la date d'un palier est celle
+ * de la séance qui l'a fait basculer, et non celle du jour où l'on regarde.
+ * C'est ce qui permet d'annoncer en fin de séance ce qu'elle vient d'ouvrir,
+ * sans avoir rien mémorisé.
  */
-export function evaluateAchievements(
+export function evaluateLadders(
   history: SessionLog[],
   weightKg: number | null = null
-): Progress[] {
+): LadderProgress[] {
   const finies = history
     .filter((s) => s.finishedAt !== null)
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
 
   const tally = emptyTally(weightKg);
-  const dates = new Map<string, string>();
+  const dates = new Map<string, (string | null)[]>(
+    LADDERS.map((l) => [l.id, l.tiers.map(() => null)])
+  );
 
   for (const seance of finies) {
     addSession(tally, seance);
-    for (const haut of ACHIEVEMENTS) {
-      if (!dates.has(haut.id) && haut.measure(tally) >= haut.target) {
-        dates.set(haut.id, seance.finishedAt ?? seance.startedAt);
-      }
+    for (const echelle of LADDERS) {
+      const atteint = echelle.measure(tally);
+      const dejaLa = dates.get(echelle.id)!;
+      echelle.tiers.forEach((palier, i) => {
+        if (dejaLa[i] === null && atteint >= palier) {
+          dejaLa[i] = seance.finishedAt ?? seance.startedAt;
+        }
+      });
     }
   }
 
-  return ACHIEVEMENTS.map((achievement) => ({
-    achievement,
-    value: achievement.measure(tally),
-    unlockedAt: dates.get(achievement.id) ?? null,
-  }));
+  return LADDERS.map((ladder) => {
+    const unlockedAt = dates.get(ladder.id)!;
+    const level = unlockedAt.filter((d) => d !== null).length;
+    return {
+      ladder,
+      value: ladder.measure(tally),
+      level,
+      unlockedAt,
+      next: level < ladder.tiers.length ? ladder.tiers[level] : null,
+    };
+  });
 }
 
-/** Identifiants débloqués, pour comparer deux moments de l'historique. */
-export function unlockedIds(history: SessionLog[], weightKg: number | null = null): Set<string> {
-  return new Set(
-    evaluateAchievements(history, weightKg)
-      .filter((p) => p.unlockedAt !== null)
-      .map((p) => p.achievement.id)
-  );
+/**
+ * « 1 jour », « 20 kg », « 2 séances ».
+ *
+ * Les unités sont écrites au pluriel dans les définitions, forme de loin la
+ * plus fréquente ; seul le singulier demande un accord.
+ */
+export function quantity(value: number, unit?: string): string {
+  const arrondi = Math.round(value * 10) / 10;
+  const nombre = arrondi.toLocaleString("fr-FR");
+  if (!unit) return nombre;
+  return `${nombre} ${arrondi === 1 && unit.endsWith("s") ? unit.slice(0, -1) : unit}`;
+}
+
+/** Libellé d'un palier : « 100 kg », ou le nom du haut fait s'il est unique. */
+export function tierLabel(ladder: Ladder, tier: number): string {
+  return ladder.unit ? quantity(tier, ladder.unit) : ladder.name;
+}
+
+export type Tier = { ladder: Ladder; tier: number; index: number };
+
+/**
+ * Paliers ouverts par une séance précise.
+ *
+ * On reconnaît la séance à sa date de fin, celle-là même qui a été inscrite
+ * lors du parcours : pas besoin de comparer deux états de l'historique.
+ *
+ * Une première séance à 100 kg franchit d'un coup tous les paliers de charge
+ * en dessous. Les annoncer tous noierait le seul qui compte : on ne garde que
+ * le plus haut de chaque échelle.
+ */
+export function tiersUnlockedBy(progress: LadderProgress[], finishedAt: string): Tier[] {
+  return progress.flatMap((p) => {
+    const index = p.unlockedAt.findLastIndex((date) => date === finishedAt);
+    return index === -1 ? [] : [{ ladder: p.ladder, tier: p.ladder.tiers[index], index }];
+  });
+}
+
+export type Goal = Tier & { value: number; part: number };
+
+/** Les prochains paliers, du plus proche au plus lointain. */
+export function nextGoals(progress: LadderProgress[], count = 3): Goal[] {
+  return progress
+    .filter((p) => p.next !== null)
+    .map((p) => ({
+      ladder: p.ladder,
+      tier: p.next as number,
+      index: p.level,
+      value: p.value,
+      part: Math.min(1, p.value / (p.next as number)),
+    }))
+    .sort((a, b) => b.part - a.part)
+    .slice(0, count);
 }

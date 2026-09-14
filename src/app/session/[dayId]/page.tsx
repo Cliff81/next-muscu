@@ -2,14 +2,20 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { SessionRecap } from "@/components/SessionRecap";
 import { SessionRunner } from "@/components/SessionRunner";
 import { useActiveSession } from "@/lib/useActiveSession";
 import { useProgram } from "@/lib/useProgram";
+import type { SessionLog } from "@/lib/types";
 
 export default function SessionPage() {
   const params = useParams<{ dayId: string }>();
   const router = useRouter();
   const { program } = useProgram();
+  // La séance terminée reste en main le temps d'en montrer le bilan : le
+  // magasin, lui, l'a déjà versée à l'historique.
+  const [recap, setRecap] = useState<SessionLog | null>(null);
   const day = program.days.find((d) => d.id === params.dayId);
 
   const activeSession = useActiveSession(day ?? program.days[0]);
@@ -28,8 +34,7 @@ export default function SessionPage() {
   const { session, start, updateSet, finish, abandon, elapsedSeconds } = activeSession;
 
   function handleFinish() {
-    finish();
-    router.push("/progress");
+    setRecap(finish());
   }
 
   function handleAbandon() {
@@ -43,7 +48,9 @@ export default function SessionPage() {
         ← Retour au programme
       </Link>
 
-      {!session || session.finishedAt ? (
+      {recap ? (
+        <SessionRecap log={recap} />
+      ) : !session || session.finishedAt ? (
         <div className="mt-6">
           <div className="mb-6 flex items-start gap-4">
             <div className="rounded-lg border border-border bg-surface px-4 py-1 font-display text-4xl leading-none text-accent">
