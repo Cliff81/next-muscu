@@ -7,7 +7,9 @@ import { NEAT_LEVELS, hoursLabel, programMinutes } from "@/lib/activities";
 import { computeNeeds, GOALS } from "@/lib/nutrition";
 import { nutritionAdvice } from "@/lib/nutritionAdvice";
 import { profileStore } from "@/lib/profile";
-import { activitiesStore, goalStore, neatStore } from "@/lib/stores";
+import { activitiesStore, goalStore, neatStore, weightsStore } from "@/lib/stores";
+import { weightTrend } from "@/lib/bodyWeight";
+import { coachFromTrend } from "@/lib/weightCoach";
 import { useProgram } from "@/lib/useProgram";
 
 /**
@@ -20,6 +22,9 @@ export default function NutritionPage() {
   const neat = neatStore.useValue();
   const { program } = useProgram();
   const goal = goalStore.useValue();
+  const pesees = weightsStore.useValue();
+  // La balance juge l'objectif : sur deux semaines au moins, sinon on lit l'eau.
+  const verdict = coachFromTrend(goal, weightTrend(pesees, 14));
 
   const sessions = program.days.length || 4;
   const minutes = programMinutes(program.days.map((d) => d.restInfo.duration));
@@ -86,6 +91,36 @@ export default function NutritionPage() {
               <Tile value={needs.protein} unit="g" label="Protéines" />
               <Tile value={needs.carbs} unit="g" label="Glucides" />
               <Tile value={needs.fat} unit="g" label="Lipides" />
+            </div>
+
+            <div
+              className={`mt-4 rounded-2xl border p-4 ${
+                verdict.kind === "ok"
+                  ? "border-pos/40 bg-pos-soft"
+                  : verdict.kind === "pas-assez"
+                    ? "border-border bg-surface"
+                    : "border-warn/40 bg-surface"
+              }`}
+            >
+              <div className="text-[0.7rem] tracking-[0.12em] text-muted uppercase">D&apos;après ta balance</div>
+              <p className={`mt-1 text-sm ${verdict.kind === "ok" ? "text-pos" : verdict.kind === "pas-assez" ? "text-muted" : "text-text"}`}>
+                {verdict.message}
+              </p>
+              {verdict.adjustKcal !== 0 && (
+                <p className="mt-1.5 text-[0.8rem] text-muted">
+                  Objectif calculé {needs.calories} kcal → vise plutôt{" "}
+                  <span className="font-display text-lg text-accent">
+                    {needs.calories + verdict.adjustKcal} kcal
+                  </span>{" "}
+                  par jour, et repèse-toi dans deux semaines.
+                </p>
+              )}
+              {verdict.kind === "pas-assez" && (
+                <p className="mt-1.5 text-[0.8rem] text-muted">
+                  Note ton poids dans Progression — une pesée par semaine suffit.
+                  {pesees.length > 0 ? ` ${pesees.length} pesée${pesees.length > 1 ? "s" : ""} pour l'instant.` : ""}
+                </p>
+              )}
             </div>
 
             <div className="mt-6 rounded-2xl border border-border bg-surface p-4">

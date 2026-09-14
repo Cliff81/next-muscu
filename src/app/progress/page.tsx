@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Achievements } from "@/components/Achievements";
 import { BodyWeightSection } from "@/components/BodyWeightSection";
+import { MuscleVolumeSection } from "@/components/MuscleVolumeSection";
 import { WeightChart } from "@/components/WeightChart";
 import { bestOneRepMax, detectPlateau, distinctExerciseNames, weightProgressionFor } from "@/lib/progressData";
 import { frenchName } from "@/lib/exerciseNames";
@@ -163,6 +164,8 @@ export default function ProgressPage() {
           </section>
         </>
       )}
+
+      <MuscleVolumeSection history={history} />
 
       <BodyWeightSection />
 

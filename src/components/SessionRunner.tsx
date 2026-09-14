@@ -6,10 +6,12 @@ import { LoadGauge } from "@/components/LoadGauge";
 import { askNotifications } from "@/lib/notify";
 import { frenchName } from "@/lib/exerciseNames";
 import { detectPlateau } from "@/lib/progressData";
+import { warmupRamp } from "@/lib/warmup";
 import { kilos } from "@/lib/format";
 import {
   describePerformance,
   lastPerformance,
+  recentPerformances,
   repRange,
   suggestNext,
 } from "@/lib/overload";
@@ -104,6 +106,7 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
     : null;
   const suggestion = currentStep ? suggestNext(previous, currentStep.reps) : null;
   const plateau = currentStep ? detectPlateau(history, currentStep.exerciseName) : null;
+
   const suggestedWeight =
     suggestion && (suggestion.kind === "increase" || suggestion.kind === "hold")
       ? suggestion.weight
@@ -137,6 +140,16 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
     keepScreenAwake();
     return releaseWakeLock;
   }, []);
+  // Les deux fois d'avant, sous la dernière : une tendance, pas un jour.
+  const avant = currentStep ? recentPerformances(history, currentStep.exerciseName, session.id, 3).slice(1) : [];
+  /*
+   * Échauffement : sur la toute première série de la séance seulement, quand
+   * une charge de travail est connue. Coché ici et oublié — ce n'est pas une
+   * performance, ça ne va pas dans l'historique.
+   */
+  const [echauffes, setEchauffes] = useState<number[]>([]);
+  const chargeTravail = suggestedWeight ?? currentSet?.weight ?? previous?.topWeight ?? null;
+  const montee = focusPos === 0 && !started && currentSet && !currentSet.completed ? warmupRamp(chargeTravail) : [];
   const isFirstStepOfSession = focusPos === 0;
 
   function handleFinish() {
@@ -289,6 +302,51 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
                   répétitions, ou ralentis la descente.
                 </div>
               )}
+              {avant.length > 0 && (
+                <div className="mt-1.5 border-t border-border pt-1.5 text-[0.72rem] text-muted">
+                  Avant :{" "}
+                  {avant
+                    .map(
+                      (p) =>
+                        `${new Date(p.date).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })} · ${describePerformance(p)}`
+                    )
+                    .join(" — ")}
+                </div>
+              )}
+            </div>
+          )}
+
+          {montee.length > 0 && (
+            <div className="mt-2 rounded-lg border border-accent/30 bg-surface2 px-3 py-2 text-[0.78rem]">
+              <div className="text-[0.65rem] tracking-[0.1em] text-accent uppercase">
+                Échauffement — montée vers {kilos(chargeTravail as number)}
+              </div>
+              <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                {montee.map((m, i) => {
+                  const fait = echauffes.includes(i);
+                  return (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEchauffes((l) => (fait ? l.filter((x) => x !== i) : [...l, i]))
+                        }
+                        aria-pressed={fait}
+                        className={`rounded-full border px-3 py-1 text-xs transition ${
+                          fait
+                            ? "border-pos/60 bg-pos-soft text-pos line-through"
+                            : "border-border text-text hover:border-accent"
+                        }`}
+                      >
+                        {kilos(m.kg)} × {m.reps}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="mt-1.5 text-[0.68rem] text-muted">
+                Trois minutes qui préparent le geste et les articulations. Repos court entre les paliers.
+              </p>
             </div>
           )}
 

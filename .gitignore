@@ -43,3 +43,6 @@ next-env.d.ts
 
 # configuration IDE
 .idea/
+
+# sortie de compilation des tests
+.tests-build/

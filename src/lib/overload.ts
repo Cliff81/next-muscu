@@ -39,21 +39,26 @@ export type LastPerformance = {
 };
 
 /**
- * Dernière fois que ce mouvement a été fait, séance en cours exclue.
+ * Les dernières fois que ce mouvement a été fait, de la plus récente à la plus
+ * ancienne, séance en cours exclue.
  *
  * Seules les séries **validées** comptent : une série préparée mais non faite
- * est une intention, pas un résultat.
+ * est une intention, pas un résultat. Trois séances disent une tendance là où
+ * une seule ne dit qu'un jour.
  */
-export function lastPerformance(
+export function recentPerformances(
   history: SessionLog[],
   exerciseName: string,
-  excludeSessionId?: string
-): LastPerformance | null {
+  excludeSessionId?: string,
+  count = 3
+): LastPerformance[] {
   const candidates = history
     .filter((s) => s.finishedAt && s.id !== excludeSessionId)
     .sort((a, b) => (b.finishedAt as string).localeCompare(a.finishedAt as string));
 
+  const trouvees: LastPerformance[] = [];
   for (const session of candidates) {
+    if (trouvees.length >= count) break;
     const exercise = session.exercises.find((e) => e.exerciseName === exerciseName);
     if (!exercise) continue;
     const sets = exercise.sets
@@ -61,13 +66,22 @@ export function lastPerformance(
       .map((s) => ({ weight: s.weight, reps: s.reps }));
     if (!sets.length) continue;
     const weights = sets.map((s) => s.weight).filter((w): w is number => w !== null && w > 0);
-    return {
+    trouvees.push({
       date: session.finishedAt as string,
       sets,
       topWeight: weights.length ? Math.max(...weights) : null,
-    };
+    });
   }
-  return null;
+  return trouvees;
+}
+
+/** La plus récente seulement — c'est elle qui fonde la suggestion. */
+export function lastPerformance(
+  history: SessionLog[],
+  exerciseName: string,
+  excludeSessionId?: string
+): LastPerformance | null {
+  return recentPerformances(history, exerciseName, excludeSessionId, 1)[0] ?? null;
 }
 
 /**

@@ -1,0 +1,13 @@
+import { warmupRamp } from "../.tests-build/warmup.mjs";
+let ko = 0;
+const eq = (nom, a, b) => { const ok = JSON.stringify(a) === JSON.stringify(b); if (!ok) { ko++; console.log(`✗ ${nom}\n   attendu ${JSON.stringify(b)}\n   obtenu  ${JSON.stringify(a)}`); } else console.log(`✓ ${nom}`); };
+eq("100 kg : 40, 60, 80", warmupRamp(100).map((s) => s.kg), [40, 60, 80]);
+eq("répétitions décroissantes", warmupRamp(100).map((s) => s.reps), [8, 5, 3]);
+eq("arrondi au disque de 2,5", warmupRamp(62.5).map((s) => s.kg), [25, 37.5, 50]);
+eq("charge inconnue : rien", warmupRamp(null), []);
+eq("poids du corps ou trop léger : rien", [warmupRamp(0), warmupRamp(20), warmupRamp(29)], [[], [], []]);
+eq("30 kg : la montée existe", warmupRamp(30).map((s) => s.kg), [12.5, 17.5, 25]);
+eq("aucun palier n'atteint la charge de travail", warmupRamp(35).every((s) => s.kg < 35), true);
+eq("paliers confondus fusionnés", new Set(warmupRamp(32.5).map((s) => s.kg)).size, warmupRamp(32.5).length);
+console.log(ko ? `\n${ko} échec(s)` : "\nTout passe");
+process.exit(ko ? 1 : 0);
