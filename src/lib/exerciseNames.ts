@@ -7,11 +7,11 @@
  * séances d'avant sous un nom, celles d'après sous un autre. La traduction se
  * fait donc à l'affichage seulement, par ce dictionnaire.
  *
- * Couvre les 190 mouvements que le générateur peut poser — toutes les
- * combinaisons de type, fréquence, niveau, lieu, matériel et durée, plus les
- * journées composées à la main. Un mouvement choisi dans le sélecteur hors de
- * cette liste garde son nom anglais : mieux qu'une traduction automatique
- * fausse.
+ * Couvre le programme par défaut, les journées composées à la main et les
+ * mouvements que le générateur pose le plus souvent — pas les 876 du
+ * catalogue. Un mouvement hors de cette liste garde son nom anglais : mieux
+ * qu'une traduction automatique fausse. Quand un programme réel en montre un,
+ * on l'ajoute ici.
  */
 export const FRENCH_NAMES: Record<string, string> = {
   "3/4 Sit-Up": "Relevé de buste 3/4",
@@ -29,6 +29,7 @@ export const FRENCH_NAMES: Record<string, string> = {
   "Barbell Curl": "Curl barre",
   "Barbell Curls Lying Against An Incline": "Curl barre allongé sur banc incliné",
   "Barbell Deadlift": "Soulevé de terre barre",
+  "Barbell Full Squat": "Squat complet barre",
   "Barbell Incline Bench Press - Medium Grip": "Développé incliné barre",
   "Barbell Incline Shoulder Raise": "Élévation d'épaules barre, banc incliné",
   "Barbell Rear Delt Row": "Rowing barre deltoïdes postérieurs",
@@ -47,6 +48,7 @@ export const FRENCH_NAMES: Record<string, string> = {
   "Bent Over One-Arm Long Bar Row": "Rowing un bras à la barre longue",
   "Bent Over Two-Dumbbell Row": "Rowing haltères buste penché",
   "Bent Over Two-Dumbbell Row With Palms In": "Rowing haltères prise neutre",
+  "Bent-Arm Barbell Pullover": "Pull-over barre bras fléchis",
   "Bent-Knee Hip Raise": "Relevé de bassin genoux fléchis",
   "Bicycling, Stationary": "Vélo d'appartement",
   "Body Tricep Press": "Extension triceps au poids du corps",
@@ -94,6 +96,7 @@ export const FRENCH_NAMES: Record<string, string> = {
   "Close-Grip Front Lat Pulldown": "Tirage vertical prise serrée",
   "Close-Grip Push-Up off of a Dumbbell": "Pompes serrées sur un haltère",
   "Cocoons": "Cocons (enroulement complet)",
+  "Concentration Curls": "Curl concentré",
   "Cross Over - With Bands": "Écarté vis-à-vis à l'élastique",
   "Crunch - Hands Overhead": "Crunch bras tendus au-dessus de la tête",
   "Crunch - Legs On Exercise Ball": "Crunch jambes sur Swiss ball",
@@ -109,16 +112,23 @@ export const FRENCH_NAMES: Record<string, string> = {
   "Dips - Triceps Version": "Dips (version triceps)",
   "Double Leg Butt Kick": "Talons-fesses sautés",
   "Drag Curl": "Curl barre glissé (drag curl)",
+  "Dumbbell Bench Press": "Développé couché haltères",
   "Dumbbell Flyes": "Écarté couché haltères",
+  "Dumbbell Lunges": "Fentes haltères",
   "Dumbbell Seated One-Leg Calf Raise": "Mollets assis une jambe haltère",
+  "Dumbbell Shoulder Press": "Développé épaules haltères",
   "Dumbbell Shrug": "Haussements d'épaules haltères",
   "External Rotation with Band": "Rotation externe à l'élastique",
+  "EZ-Bar Curl": "Curl barre EZ",
+  "EZ-Bar Skullcrusher": "Barre au front (EZ)",
   "Fast Skipping": "Corde à sauter rapide",
   "Finger Curls": "Curl des doigts",
+  "Flat Bench Cable Flyes": "Écarté poulie sur banc plat",
   "Flat Bench Lying Leg Raise": "Relevé de jambes allongé sur banc",
   "Floor Glute-Ham Raise": "Glute-ham raise au sol",
   "Flutter Kicks": "Battements de jambes",
   "Freehand Jump Squat": "Squat sauté",
+  "Front Dumbbell Raise": "Élévations frontales haltères",
   "Glute Kickback": "Kickback fessier",
   "Handstand Push-Ups": "Pompes en équilibre sur les mains",
   "High Cable Curls": "Curl poulie haute",
@@ -141,6 +151,7 @@ export const FRENCH_NAMES: Record<string, string> = {
   "Kneeling Arm Drill": "Travail des bras à genoux (sprint)",
   "Leg Extensions": "Leg extension",
   "Leg Lift": "Relevé de jambes",
+  "Leg Press": "Presse à cuisses",
   "Leverage Shrug": "Haussements d'épaules à la machine",
   "Linear 3-Part Start Technique": "Technique de départ en trois temps",
   "Linear Acceleration Wall Drill": "Montées de genoux contre un mur",
@@ -151,6 +162,8 @@ export const FRENCH_NAMES: Record<string, string> = {
   "Mountain Climbers": "Mountain climbers",
   "Moving Claw Series": "Griffes en mouvement (sprint)",
   "Natural Glute Ham Raise": "Glute-ham raise naturel",
+  "One Arm Lat Pulldown": "Tirage vertical un bras",
+  "One-Arm Dumbbell Row": "Rowing haltère un bras",
   "One-Arm Flat Bench Dumbbell Flye": "Écarté un bras haltère",
   "One-Legged Cable Kickback": "Kickback une jambe à la poulie",
   "Palms-Down Dumbbell Wrist Curl Over A Bench": "Curl poignets haltère en pronation sur banc",
@@ -181,9 +194,11 @@ export const FRENCH_NAMES: Record<string, string> = {
   "Seated Calf Raise": "Mollets assis à la machine",
   "Seated Dumbbell Palms-Down Wrist Curl": "Curl poignets assis haltère en pronation",
   "Seated Dumbbell Palms-Up Wrist Curl": "Curl poignets assis haltère en supination",
+  "Seated Dumbbell Press": "Développé assis haltères",
   "Seated Good Mornings": "Good morning assis",
   "Seated Leg Curl": "Leg curl assis",
   "Shoulder Press - With Bands": "Développé épaules à l'élastique",
+  "Side Lateral Raise": "Élévations latérales haltères",
   "Single Leg Glute Bridge": "Pont fessier une jambe",
   "Single-Arm Push-Up": "Pompes à un bras",
   "Single-Leg Leg Extension": "Leg extension une jambe",
@@ -194,6 +209,7 @@ export const FRENCH_NAMES: Record<string, string> = {
   "Speed Band Overhead Triceps": "Extension triceps nuque rapide à l'élastique",
   "Split Jump": "Fentes sautées",
   "Squats - With Bands": "Squat à l'élastique",
+  "Standing Calf Raises": "Mollets debout",
   "Standing Dumbbell Upright Row": "Rowing menton haltères",
   "Standing Leg Curl": "Leg curl debout",
   "Standing Towel Triceps Extension": "Extension triceps avec serviette",
@@ -202,6 +218,7 @@ export const FRENCH_NAMES: Record<string, string> = {
   "Stiff-Legged Dumbbell Deadlift": "Soulevé de terre jambes tendues haltères",
   "Straight-Arm Pulldown": "Tirage bras tendus à la poulie",
   "Trail Running/Walking": "Course ou marche en sentier",
+  "Triceps Pushdown": "Extension triceps poulie haute",
   "V-Bar Pullup": "Tractions à la barre en V",
   "Wide-Grip Rear Pull-Up": "Tractions prise large nuque",
 };
