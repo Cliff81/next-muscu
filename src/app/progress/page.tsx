@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Achievements } from "@/components/Achievements";
 import { BodyWeightSection } from "@/components/BodyWeightSection";
+import { ExerciseNote } from "@/components/ExerciseNote";
+import { SessionCalendar } from "@/components/SessionCalendar";
 import { MuscleVolumeSection } from "@/components/MuscleVolumeSection";
 import { WeightChart } from "@/components/WeightChart";
 import { bestOneRepMax, detectPlateau, distinctExerciseNames, weightProgressionFor } from "@/lib/progressData";
@@ -75,7 +77,9 @@ export default function ProgressPage() {
 
       {history.length > 0 && (
         <>
-          <section className="mt-8">
+          <SessionCalendar history={history} />
+
+          <section className="mt-10">
             <h2 className="font-display mb-3 text-2xl text-accent2">Progression des charges</h2>
             {exerciseNames.length > 0 && (
               <select
@@ -98,6 +102,13 @@ export default function ProgressPage() {
                 {new Date(record.date).toLocaleDateString("fr-FR", dateLongue)}. Formule
                 d&apos;Epley : une estimation, pas une charge à tenter à froid.
               </p>
+            )}
+            {activeExercise && (
+              <ExerciseNote
+                key={activeExercise}
+                name={activeExercise}
+                label={frenchName(activeExercise)}
+              />
             )}
             {allegement ? (
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/40 bg-accent-soft px-4 py-2.5 text-[0.8rem] text-muted">

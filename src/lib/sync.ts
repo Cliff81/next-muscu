@@ -23,6 +23,7 @@ import {
 } from "@/lib/programLibrary";
 import { DEFAULT_SETTINGS, parseSettings, sameSettings } from "@/lib/settings";
 import { parseDeloads, purgeExpired } from "@/lib/deload";
+import { decideNotesSync, parseNotes } from "@/lib/notes";
 import { decideTrophySync, type Engraved } from "@/lib/trophies";
 import { repairStrings } from "@/lib/repairProgram";
 import {
@@ -37,6 +38,7 @@ import {
   programTouchedAt,
   seedProgramTimestamp,
   deloadsStore,
+  notesStore,
   settingsStore,
   trophyStore,
   weightsStore,
@@ -68,6 +70,7 @@ export function useSync(): void {
   const remoteOutings = useQuery(api.outings.get, isAuthenticated ? {} : "skip");
   const remoteLibrary = useQuery(api.libraries.get, isAuthenticated ? {} : "skip");
   const remoteWeights = useQuery(api.weights.get, isAuthenticated ? {} : "skip");
+  const remoteNotes = useQuery(api.notes.get, isAuthenticated ? {} : "skip");
   const saveProgram = useMutation(api.programs.save);
   const saveProfile = useMutation(api.profiles.save);
   const saveWorkout = useMutation(api.workouts.save);
@@ -76,6 +79,7 @@ export function useSync(): void {
   const saveOutings = useMutation(api.outings.save);
   const saveLibrary = useMutation(api.libraries.save);
   const saveWeights = useMutation(api.weights.save);
+  const mergeNotes = useMutation(api.notes.merge);
 
   const localProgram = programStore.useValue();
   const localProfile = profileStore.useValue();
@@ -90,6 +94,7 @@ export function useSync(): void {
   const localOutings = outingsStore.useValue();
   const localLibrary = libraryStore.useValue();
   const localWeights = weightsStore.useValue();
+  const localNotes = notesStore.useValue();
 
   // Les installations d'avant l'horodatage déclarent leur programme récent,
   // une fois, pour qu'il remonte au lieu d'être écrasé. Dans un effet : écrire
@@ -282,6 +287,28 @@ export function useSync(): void {
         });
     }
   }, [isAuthenticated, localWeights, remoteWeights, saveWeights]);
+
+  /*
+   * --- notes par exercice : union note par note, la plus récente l'emporte.
+   *
+   * Ni l'union pure des hauts faits — une note se corrige et s'efface —, ni
+   * l'arbitrage global du programme, qui ferait perdre la note du squat
+   * écrite ici parce que celle du curl a été écrite là-bas après. Chaque note
+   * porte sa date ; le serveur applique la même règle à la réception.
+   */
+  useEffect(() => {
+    if (!isAuthenticated || remoteNotes === undefined) return;
+    const { toStore, toPush } = decideNotesSync(localNotes, parseNotes(remoteNotes) ?? {});
+    if (toStore) {
+      notesStore.set(toStore);
+      return;
+    }
+    if (toPush) {
+      void mergeNotes({ entries: toPush }).catch(() => {
+        // Hors ligne : les notes restent ici, on retentera.
+      });
+    }
+  }, [isAuthenticated, localNotes, mergeNotes, remoteNotes]);
 
   // --- remontée du profil : les mensurations, le reste vient du jeton
   useEffect(() => {

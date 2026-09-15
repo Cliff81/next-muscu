@@ -17,7 +17,8 @@ import {
   setSetsAndReps,
 } from "@/lib/editProgram";
 import { LOAD_LABELS, loadLevel } from "@/lib/loadLevel";
-import { activeSessionStore, programStore } from "@/lib/stores";
+import { noteFor } from "@/lib/notes";
+import { activeSessionStore, notesStore, programStore } from "@/lib/stores";
 import { swapExercise } from "@/lib/swapExercise";
 import { useReorder } from "@/lib/useReorder";
 import { frenchName } from "@/lib/exerciseNames";
@@ -48,6 +49,7 @@ const leJour = (iso: string) =>
 
 export function DayPanel({ day, editing = false, onRemoveDay, doneAt = null, isNext = false }: Props) {
   const activeSession = activeSessionStore.useValue();
+  const notes = notesStore.useValue();
   const hasActiveSession = Boolean(
     activeSession && activeSession.dayId === day.id && !activeSession.finishedAt
   );
@@ -230,6 +232,12 @@ export function DayPanel({ day, editing = false, onRemoveDay, doneAt = null, isN
                         </span>
                         {exercise.sub && (
                           <div className="mt-0.5 text-[0.72rem] text-muted">{exercise.sub}</div>
+                        )}
+                        {!editing && noteFor(notes, exercise.name) && (
+                          <div className="mt-0.5 text-[0.72rem] text-muted italic">
+                            <span aria-hidden>📝 </span>
+                            {noteFor(notes, exercise.name)}
+                          </div>
                         )}
                       </div>
 

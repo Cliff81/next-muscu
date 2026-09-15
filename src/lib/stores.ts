@@ -8,6 +8,7 @@ import { programSchema } from "@/lib/programSchema";
 import { repairStrings } from "@/lib/repairProgram";
 import { parseWeights, type WeightEntry } from "@/lib/bodyWeight";
 import { parseDeloads, type Deload } from "@/lib/deload";
+import { parseNotes, type Notes } from "@/lib/notes";
 import { parseOutings, type Outing } from "@/lib/outings";
 import { DEFAULT_SETTINGS, parseSettings, type Settings } from "@/lib/settings";
 import { parseEngraved, type Engraved } from "@/lib/trophies";
@@ -131,6 +132,12 @@ export const weightsStore = {
     weightsTouchedAt.set(updatedAt);
   },
 };
+
+/**
+ * Notes personnelles par exercice — voir `notes.ts`. Chaque note porte sa
+ * date : l'arbitrage avec Convex se fait note par note.
+ */
+export const notesStore = createLocalStore<Notes>("muscu:notes", {}, parseNotes);
 
 /** Semaines allégées — voir `deload.ts`. Suivent le profil vers Convex. */
 export const deloadsStore = createLocalStore<Deload[]>("muscu:deloads", [], parseDeloads);

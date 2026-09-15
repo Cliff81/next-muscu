@@ -11,6 +11,7 @@ import { activeDeload, deloadWeight, inDeload } from "@/lib/deload";
 import { deloadsStore } from "@/lib/stores";
 import { timedSeconds, formatSeconds } from "@/lib/timedSet";
 import { HoldTimer } from "@/components/HoldTimer";
+import { ExerciseNote } from "@/components/ExerciseNote";
 import { kilos } from "@/lib/format";
 import {
   describePerformance,
@@ -300,6 +301,12 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
               {currentStep.exerciseTip ? ` · ${currentStep.exerciseTip}` : ""}
             </span>
           </div>
+
+          <ExerciseNote
+            key={currentStep.exerciseName}
+            name={currentStep.exerciseName}
+            label={frenchName(currentStep.exerciseName)}
+          />
 
           {previous && (
             <div className="mt-2 rounded-lg border border-border bg-surface2 px-3 py-2 text-[0.78rem]">

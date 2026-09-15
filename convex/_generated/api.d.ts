@@ -11,6 +11,7 @@
 import type * as access from "../access.js";
 import type * as identity from "../identity.js";
 import type * as libraries from "../libraries.js";
+import type * as notes from "../notes.js";
 import type * as outings from "../outings.js";
 import type * as profiles from "../profiles.js";
 import type * as programs from "../programs.js";
@@ -29,6 +30,7 @@ declare const fullApi: ApiFromModules<{
   access: typeof access;
   identity: typeof identity;
   libraries: typeof libraries;
+  notes: typeof notes;
   outings: typeof outings;
   profiles: typeof profiles;
   programs: typeof programs;

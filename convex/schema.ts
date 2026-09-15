@@ -134,4 +134,13 @@ export default defineSchema({
     entries: v.any(),
     updatedAt: v.number(),
   }).index("by_subject", ["subject"]),
+
+  /* Notes personnelles par exercice : `nom → { texte, date }`. Une ligne par
+   * personne ; l'arbitrage se fait note par note, la plus récente l'emporte —
+   * voir `notes.ts` côté client. */
+  notes: defineTable({
+    subject: v.string(),
+    entries: v.any(),
+    updatedAt: v.number(),
+  }).index("by_subject", ["subject"]),
 });
