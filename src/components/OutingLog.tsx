@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { SPORTS, sportById } from "@/lib/activities";
-import { ON_FOOT, ON_WHEELS, addOuting, removeOuting, totalKm, type Outing } from "@/lib/outings";
+import { ON_FOOT, ON_WHEELS, addOuting, removeOuting, totalKm, type NewOuting } from "@/lib/outings";
 import { decimal } from "@/lib/format";
 import { outingsStore } from "@/lib/stores";
 
@@ -135,7 +135,7 @@ function Formulaire({
   onAdd,
   onCancel,
 }: {
-  onAdd: (sortie: Outing) => void;
+  onAdd: (sortie: NewOuting) => void;
   onCancel: () => void;
 }) {
   const [sportId, setSportId] = useState("running");

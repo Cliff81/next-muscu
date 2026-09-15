@@ -11,8 +11,8 @@ import type { Activity, NeatLevel } from "@/lib/activities";
 import { NEAT_LEVELS } from "@/lib/activities";
 import { GOALS, type Goal } from "@/lib/nutrition";
 import { decideProgramSync } from "@/lib/mergeProgram";
-import { decideWeightsSync, parseWeights } from "@/lib/bodyWeight";
-import { decideOutingsSync, parseOutings } from "@/lib/outings";
+import { decideWeightsSync, parseWeights, type WeightEntry } from "@/lib/bodyWeight";
+import { decideOutingsSync, parseOutings, type Outing } from "@/lib/outings";
 import {
   decideLibrarySync,
   libraryStore,
@@ -33,7 +33,6 @@ import {
   historyStore,
   neatStore,
   outingsStore,
-  outingsTouchedAt,
   programStore,
   programTouchedAt,
   seedProgramTimestamp,
@@ -42,7 +41,6 @@ import {
   settingsStore,
   trophyStore,
   weightsStore,
-  weightsTouchedAt,
 } from "@/lib/stores";
 import type { Program, SessionLog } from "@/lib/types";
 
@@ -76,9 +74,9 @@ export function useSync(): void {
   const saveWorkout = useMutation(api.workouts.save);
   const removeWorkout = useMutation(api.workouts.remove);
   const mergeTrophies = useMutation(api.trophies.merge);
-  const saveOutings = useMutation(api.outings.save);
+  const mergeOutings = useMutation(api.outings.merge);
   const saveLibrary = useMutation(api.libraries.save);
-  const saveWeights = useMutation(api.weights.save);
+  const mergeWeights = useMutation(api.weights.merge);
   const mergeNotes = useMutation(api.notes.merge);
 
   const localProgram = programStore.useValue();
@@ -91,9 +89,10 @@ export function useSync(): void {
   const localHistory = historyStore.useValue();
   const localDeleted = deletedWorkoutsStore.useValue();
   const localTrophies = trophyStore.useValue();
-  const localOutings = outingsStore.useValue();
+  // Tout le journal, sorties supprimées comprises : c'est la suppression qui voyage.
+  const localOutings = outingsStore.useAll();
   const localLibrary = libraryStore.useValue();
-  const localWeights = weightsStore.useValue();
+  const localWeights = weightsStore.useAll();
   const localNotes = notesStore.useValue();
 
   // Les installations d'avant l'horodatage déclarent leur programme récent,
@@ -237,22 +236,28 @@ export function useSync(): void {
     }
   }, [isAuthenticated, localTrophies, mergeTrophies, remoteTrophies]);
 
-  // --- sorties : arbitrage par date, comme le programme
+  /*
+   * --- sorties : fusion sortie par sortie.
+   *
+   * Ni l'arbitrage global du programme — une sortie notée ici et une autre
+   * là-bas le même soir ne sont pas en conflit, l'une des deux s'effaçait —,
+   * ni l'union des hauts faits, puisqu'une sortie se corrige et se supprime.
+   * Chaque sortie porte sa date, les supprimées restent marquées, et le
+   * serveur applique la même règle à la réception.
+   */
   useEffect(() => {
     if (!isAuthenticated || remoteOutings === undefined) return;
-    const decision = decideOutingsSync(localOutings, outingsTouchedAt.get(), remoteOutings);
-    if (decision.action === "pull") {
-      outingsStore.setFromRemote(parseOutings(decision.outings) ?? [], decision.updatedAt);
+    const { toStore, toPush } = decideOutingsSync(localOutings, parseOutings(remoteOutings) ?? []);
+    if (toStore) {
+      outingsStore.set(toStore);
       return;
     }
-    if (decision.action === "push") {
-      void saveOutings({ outings: localOutings })
-        .then((r) => outingsStore.markSynced(r.updatedAt))
-        .catch(() => {
-          // Hors ligne : on retentera au prochain changement.
-        });
+    if (toPush) {
+      void mergeOutings({ entries: toPush satisfies Outing[] }).catch(() => {
+        // Hors ligne : les sorties restent ici, on retentera.
+      });
     }
-  }, [isAuthenticated, localOutings, remoteOutings, saveOutings]);
+  }, [isAuthenticated, localOutings, mergeOutings, remoteOutings]);
 
   // --- programmes gardés : arbitrage par date, comme le programme actif
   useEffect(() => {
@@ -271,22 +276,20 @@ export function useSync(): void {
     }
   }, [isAuthenticated, localLibrary, remoteLibrary, saveLibrary]);
 
-  // --- pesées : arbitrage par date, comme le programme
+  // --- pesées : fusion jour par jour, même règle que les sorties
   useEffect(() => {
     if (!isAuthenticated || remoteWeights === undefined) return;
-    const decision = decideWeightsSync(localWeights, weightsTouchedAt.get(), remoteWeights);
-    if (decision.action === "pull") {
-      weightsStore.setFromRemote(parseWeights(decision.entries) ?? [], decision.updatedAt);
+    const { toStore, toPush } = decideWeightsSync(localWeights, parseWeights(remoteWeights) ?? []);
+    if (toStore) {
+      weightsStore.set(toStore);
       return;
     }
-    if (decision.action === "push") {
-      void saveWeights({ entries: localWeights })
-        .then((r) => weightsStore.markSynced(r.updatedAt))
-        .catch(() => {
-          // Hors ligne : on retentera au prochain changement.
-        });
+    if (toPush) {
+      void mergeWeights({ entries: toPush satisfies WeightEntry[] }).catch(() => {
+        // Hors ligne : les pesées restent ici, on retentera.
+      });
     }
-  }, [isAuthenticated, localWeights, remoteWeights, saveWeights]);
+  }, [isAuthenticated, localWeights, mergeWeights, remoteWeights]);
 
   /*
    * --- notes par exercice : union note par note, la plus récente l'emporte.

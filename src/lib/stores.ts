@@ -3,13 +3,14 @@ import { activitiesSchema } from "@/lib/activitiesSchema";
 import { parseHistory } from "@/lib/historySchema";
 import { GOALS, type Goal } from "@/lib/nutrition";
 import { NEAT_LEVELS, type Activity, type NeatLevel } from "@/lib/activities";
+import { useMemo } from "react";
 import { createLocalStore } from "@/lib/createLocalStore";
 import { programSchema } from "@/lib/programSchema";
 import { repairStrings } from "@/lib/repairProgram";
-import { parseWeights, type WeightEntry } from "@/lib/bodyWeight";
+import { liveWeights, parseWeights, type WeightEntry } from "@/lib/bodyWeight";
 import { parseDeloads, type Deload } from "@/lib/deload";
 import { parseNotes, type Notes } from "@/lib/notes";
-import { parseOutings, type Outing } from "@/lib/outings";
+import { liveOutings, parseOutings, type Outing } from "@/lib/outings";
 import { DEFAULT_SETTINGS, parseSettings, type Settings } from "@/lib/settings";
 import { parseEngraved, type Engraved } from "@/lib/trophies";
 import type { Program, SessionLog } from "@/lib/types";
@@ -89,48 +90,35 @@ export const historyStore = createLocalStore<SessionLog[]>("muscu:history", [], 
 export const activeSessionStore = createLocalStore<SessionLog | null>("muscu:activeSession", null);
 
 const outingsRaw = createLocalStore<Outing[]>("muscu:outings", [], parseOutings);
-export const outingsTouchedAt = createLocalStore<number>("muscu:outingsTouchedAt", 0);
 
 /**
- * Sorties enregistrées. Même règle que le programme : une sortie se corrige et
- * se supprime, donc chaque écriture locale s'horodate pour que l'arbitrage
- * sache qui, de cet appareil ou de Convex, a la version récente.
+ * Sorties enregistrées. Le journal garde les sorties supprimées, marquées,
+ * pour que la suppression suive les appareils — voir `entrySync`. L'affichage
+ * ne veut que les vivantes ; l'écriture et la synchronisation veulent tout.
  */
 export const outingsStore = {
-  useValue: outingsRaw.useValue,
+  /** Les sorties vivantes, pour l'affichage. */
+  useValue(): Outing[] {
+    const toutes = outingsRaw.useValue();
+    return useMemo(() => liveOutings(toutes), [toutes]);
+  },
+  /** Tout le journal, pierres tombales comprises : pour synchroniser. */
+  useAll: outingsRaw.useValue,
   get: outingsRaw.get,
-  set(value: Outing[]) {
-    outingsRaw.set(value);
-    outingsTouchedAt.set(Date.now());
-  },
-  /** Écriture venue de Convex : ce n'est pas une modification locale. */
-  setFromRemote(value: Outing[], updatedAt: number) {
-    outingsRaw.set(value);
-    outingsTouchedAt.set(updatedAt);
-  },
-  markSynced(updatedAt: number) {
-    outingsTouchedAt.set(updatedAt);
-  },
+  set: outingsRaw.set,
 };
 
 const weightsRaw = createLocalStore<WeightEntry[]>("muscu:bodyWeight", [], parseWeights);
-export const weightsTouchedAt = createLocalStore<number>("muscu:bodyWeightTouchedAt", 0);
 
-/** Journal du poids de corps — voir `bodyWeight.ts`. Horodaté comme le programme. */
+/** Journal du poids de corps — voir `bodyWeight.ts`. Même règle que les sorties. */
 export const weightsStore = {
-  useValue: weightsRaw.useValue,
+  useValue(): WeightEntry[] {
+    const toutes = weightsRaw.useValue();
+    return useMemo(() => liveWeights(toutes), [toutes]);
+  },
+  useAll: weightsRaw.useValue,
   get: weightsRaw.get,
-  set(value: WeightEntry[]) {
-    weightsRaw.set(value);
-    weightsTouchedAt.set(Date.now());
-  },
-  setFromRemote(value: WeightEntry[], updatedAt: number) {
-    weightsRaw.set(value);
-    weightsTouchedAt.set(updatedAt);
-  },
-  markSynced(updatedAt: number) {
-    weightsTouchedAt.set(updatedAt);
-  },
+  set: weightsRaw.set,
 };
 
 /**

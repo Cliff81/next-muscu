@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { addWeight, latestWeight, removeWeight, weightTrend, type WeightEntry } from "@/lib/bodyWeight";
+import { addWeight, latestWeight, removeWeight, weightTrend } from "@/lib/bodyWeight";
 import { decimal, kilos } from "@/lib/format";
 import { profileStore } from "@/lib/profile";
 import { weightsStore } from "@/lib/stores";
@@ -56,7 +56,7 @@ export function BodyWeightSection() {
 
   const noter = () => {
     if (!valide) return;
-    const entree: WeightEntry = { date, kg: valeur };
+    const entree = { date, kg: valeur };
     const liste = addWeight(weightsStore.get(), entree);
     weightsStore.set(liste);
     // Le profil suit la pesée la plus récente — pas forcément celle qu'on

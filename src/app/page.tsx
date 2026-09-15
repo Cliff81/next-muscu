@@ -4,6 +4,7 @@ import { useState } from "react";
 import { DayPanel } from "@/components/DayPanel";
 import { DayTabs } from "@/components/DayTabs";
 import { Header } from "@/components/Header";
+import { ThisWeek } from "@/components/ThisWeek";
 import { addDay, removeDay } from "@/lib/editProgram";
 import { activeSessionStore, programStore } from "@/lib/stores";
 import { useHistory } from "@/lib/useHistory";
@@ -47,6 +48,7 @@ export default function Home() {
     <>
       <Header program={program} editing={editing} />
       <div className="mx-auto w-full max-w-[900px] px-8 pb-16">
+        {!editing && <ThisWeek days={program.days} history={history} status={status} />}
         <DayTabs
           days={program.days}
           activeIndex={index}

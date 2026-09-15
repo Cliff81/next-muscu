@@ -133,6 +133,26 @@ export function monthLabels(weeks: DayCell[][]): MonthLabel[] {
   return labels.filter((l, i) => i === labels.length - 1 || labels[i + 1].index - l.index >= 3);
 }
 
+export type WeekSummary = {
+  /** Les sept jours de la semaine en cours, du lundi au dimanche. */
+  days: DayCell[];
+  sessions: number;
+  outings: number;
+  km: number;
+};
+
+/** La semaine en cours, résumée pour le bloc « Cette semaine ». */
+export function weekSummary(history: SessionLog[], outings: Outing[], now: Date = new Date()): WeekSummary {
+  const days = calendarWeeks(history, outings, 1, now)[0];
+  const sorties = days.flatMap((d) => d.outings);
+  return {
+    days,
+    sessions: days.reduce((n, d) => n + d.sessions.length, 0),
+    outings: sorties.length,
+    km: Math.round(sorties.reduce((n, o) => n + (o.km ?? 0), 0) * 10) / 10,
+  };
+}
+
 export function countSessions(weeks: DayCell[][]): number {
   return weeks.reduce((n, semaine) => n + semaine.reduce((m, jour) => m + jour.sessions.length, 0), 0);
 }

@@ -5,11 +5,16 @@
  * semaine, quarante-cinq minutes ». Cela suffit à estimer une dépense, pas à
  * compter des kilomètres : une habitude ne dit pas ce qui a été fait. D'où ce
  * journal, qui note ce qui a réellement eu lieu.
+ *
+ * Chaque sortie porte sa date de modification et se synchronise pour son
+ * compte — voir `entrySync`. Une sortie supprimée reste dans le journal,
+ * marquée : c'est ce qui permet à la suppression de suivre les appareils. Les
+ * fonctions d'affichage ne voient que les sorties vivantes.
  */
 
-import { decideByTimestamp } from "@/lib/lastWrite";
+import { decideEntrySync, live, readStamp, type EntrySync, type Stamped } from "@/lib/entrySync";
 
-export type Outing = {
+export type Outing = Stamped & {
   id: string;
   /** Identifiant dans `SPORTS`. */
   sportId: string;
@@ -19,6 +24,9 @@ export type Outing = {
   km: number | null;
   minutes: number;
 };
+
+/** Une sortie telle qu'on la saisit : le journal la date lui-même. */
+export type NewOuting = Omit<Outing, keyof Stamped>;
 
 /** Sports comptés comme des kilomètres à pied. */
 export const ON_FOOT = ["running", "walking", "hiking"];
@@ -34,51 +42,42 @@ export function parseOutings(valeur: unknown): Outing[] | null {
     if (typeof o.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(o.date)) return [];
     const km = typeof o.km === "number" && Number.isFinite(o.km) && o.km >= 0 ? o.km : null;
     const minutes = typeof o.minutes === "number" && o.minutes > 0 ? o.minutes : 0;
-    return [{ id: o.id, sportId: o.sportId, date: o.date, km, minutes }];
+    const sortie: Outing = { id: o.id, sportId: o.sportId, date: o.date, km, minutes, updatedAt: readStamp(o.updatedAt) };
+    if (typeof o.deletedAt === "number" && Number.isFinite(o.deletedAt)) sortie.deletedAt = o.deletedAt;
+    return [sortie];
   });
-  return gardees;
+  return sortOutings(gardees);
 }
 
 const parDate = (a: Outing, b: Outing) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id);
 
-export function addOuting(list: Outing[], outing: Outing): Outing[] {
-  return [...list.filter((o) => o.id !== outing.id), outing].sort(parDate);
+export function sortOutings(list: Outing[]): Outing[] {
+  return [...list].sort(parDate);
 }
 
-export function removeOuting(list: Outing[], id: string): Outing[] {
-  return list.filter((o) => o.id !== id);
+/** Les sorties à montrer : sans les supprimées. */
+export const liveOutings: (list: Outing[]) => Outing[] = live;
+
+/** Ajoute ou remplace une sortie, datée de l'instant. */
+export function addOuting(list: Outing[], outing: NewOuting, now: number = Date.now()): Outing[] {
+  const { id, sportId, date, km, minutes } = outing;
+  return sortOutings([...list.filter((o) => o.id !== id), { id, sportId, date, km, minutes, updatedAt: now }]);
+}
+
+/** Marque une sortie supprimée ; sans effet sur une inconnue. */
+export function removeOuting(list: Outing[], id: string, now: number = Date.now()): Outing[] {
+  return list.map((o) => (o.id === id && o.deletedAt === undefined ? { ...o, deletedAt: now, updatedAt: now } : o));
 }
 
 /** Kilomètres cumulés, éventuellement restreints à une famille de sports. */
 export function totalKm(list: Outing[], sportIds?: string[]): number {
-  return list
+  return live(list)
     .filter((o) => (sportIds ? sportIds.includes(o.sportId) : true))
     .reduce((total, o) => total + (o.km ?? 0), 0);
 }
 
-export type RemoteOutings = { outings: unknown; updatedAt: number } | null;
-
-export type OutingsSyncDecision =
-  | { action: "pull"; outings: unknown; updatedAt: number }
-  | { action: "push" }
-  | { action: "none" };
-
-/**
- * Qui, du local ou du distant, fait foi — la règle commune de `lastWrite`. Une
- * sortie se corrige et se supprime, donc l'union ne suffirait pas : il faut un
- * arbitrage par date.
- */
-export function decideOutingsSync(
-  local: Outing[],
-  touchedAt: number,
-  remote: RemoteOutings
-): OutingsSyncDecision {
-  const decision = decideByTimestamp(
-    local,
-    touchedAt,
-    remote === null ? null : { value: remote.outings, updatedAt: remote.updatedAt }
-  );
-  return decision.action === "pull"
-    ? { action: "pull", outings: decision.value, updatedAt: decision.updatedAt }
-    : decision;
+/** Fusion entrée par entrée avec le journal distant — voir `entrySync`. */
+export function decideOutingsSync(local: Outing[], remote: Outing[]): EntrySync<Outing> {
+  const { toStore, toPush } = decideEntrySync(local, remote, (o) => o.id);
+  return { toStore: toStore ? sortOutings(toStore) : null, toPush };
 }

@@ -1,35 +1,40 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { optionalSubject, requireSubject } from "./identity";
+import { mergeStamped } from "./stamped";
 
 export const get = query({
   args: {},
   handler: async (ctx) => {
     const subject = await optionalSubject(ctx);
-    if (!subject) return null;
+    if (!subject) return [];
     const row = await ctx.db
       .query("outings")
       .withIndex("by_subject", (q) => q.eq("subject", subject))
       .unique();
-    return row ? { outings: row.outings, updatedAt: row.updatedAt } : null;
+    return (row?.outings ?? []) as unknown[];
   },
 });
 
-/** Enregistre le journal de sorties, et rend l'heure retenue par le serveur. */
-export const save = mutation({
-  args: { outings: v.any() },
-  handler: async (ctx, { outings }) => {
+/**
+ * Fond les sorties reçues dans le journal, sortie par sortie : la version la
+ * plus récente de chacune l'emporte, à date égale celle déjà en place. L'union
+ * se fait **ici**, comme pour les notes : deux appareils qui écrivent coup sur
+ * coup n'ont pas à se voir, le second n'efface pas la sortie du premier.
+ */
+export const merge = mutation({
+  args: { entries: v.any() },
+  handler: async (ctx, { entries }) => {
     const subject = await requireSubject(ctx);
-    const updatedAt = Date.now();
     const row = await ctx.db
       .query("outings")
       .withIndex("by_subject", (q) => q.eq("subject", subject))
       .unique();
-    if (row) {
-      await ctx.db.patch(row._id, { outings, updatedAt });
-      return { id: row._id, updatedAt };
-    }
-    const id = await ctx.db.insert("outings", { subject, outings, updatedAt });
-    return { id, updatedAt };
+
+    const union = mergeStamped(row?.outings, entries, "id");
+
+    if (row) await ctx.db.patch(row._id, { outings: union, updatedAt: Date.now() });
+    else await ctx.db.insert("outings", { subject, outings: union, updatedAt: Date.now() });
+    return union;
   },
 });

@@ -9,7 +9,7 @@ import { spawnSync } from "node:child_process";
  * échoue en sortant avec un code non nul.
  */
 const LIBS = [
-  "achievements", "bodyWeight", "calendar", "customProgram", "deload", "lastWrite", "mergeProgram",
+  "achievements", "bodyWeight", "calendar", "customProgram", "deload", "entrySync", "lastWrite", "mergeProgram",
   "mergeWorkouts", "muscleVolume", "notes", "outings", "overload", "progressData",
   "settings", "timedSet", "trophies", "warmup", "week", "weightCoach",
 ];

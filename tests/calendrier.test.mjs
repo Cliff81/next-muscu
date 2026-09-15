@@ -1,4 +1,4 @@
-import { calendarWeeks, dayKey, weeklyStreak, weeksToShow, monthLabels, countSessions } from "../.tests-build/calendar.mjs";
+import { calendarWeeks, dayKey, weeklyStreak, weeksToShow, monthLabels, countSessions, weekSummary } from "../.tests-build/calendar.mjs";
 
 let ko = 0;
 const eq = (nom, a, b) => {
@@ -64,6 +64,18 @@ eq("deux mois collés : le premier s'efface", monthLabels(g), [
   { index: 5, month: 7, year: 2026 },
   { index: 10, month: 8, year: 2026 },
 ]);
+
+// --- résumé de la semaine en cours
+const r = weekSummary(
+  [seance("2026-09-14T10:00:00"), seance("2026-09-15T18:00:00"), seance("2026-09-08T10:00:00")],
+  [sortie("2026-09-16"), sortie("2026-09-01"), { ...sortie("2026-09-17"), km: 2.25 }],
+  maintenant
+);
+eq("sept jours", r.days.map((d) => d.date.slice(8)), ["14", "15", "16", "17", "18", "19", "20"]);
+eq("séances de la semaine seulement", r.sessions, 2);
+eq("sorties de la semaine seulement", r.outings, 2);
+eq("kilomètres de la semaine, arrondis", r.km, 7.3);
+eq("séance rangée à son jour", r.days[1].sessions.length, 1);
 
 console.log(ko ? `\n${ko} échec(s)` : "\nTout passe");
 process.exit(ko ? 1 : 0);

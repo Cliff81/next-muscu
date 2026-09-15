@@ -1,4 +1,4 @@
-import { parseOutings, addOuting, removeOuting, totalKm, decideOutingsSync, ON_FOOT, ON_WHEELS } from "../.tests-build/outings.mjs";
+import { parseOutings, addOuting, removeOuting, totalKm, decideOutingsSync, liveOutings, ON_FOOT, ON_WHEELS } from "../.tests-build/outings.mjs";
 import { evaluateLadders, derivedUnlocks, equivalent, emptyTally, addOuting as compteSortie } from "../.tests-build/achievements.mjs";
 
 let ko = 0;
@@ -22,21 +22,43 @@ const l1 = addOuting([], sortie("a", "2026-09-05", "running", 10));
 const l2 = addOuting(l1, sortie("b", "2026-09-01", "cycling", 30));
 eq("triées par date", l2.map((o) => o.id), ["b", "a"]);
 eq("même identifiant : remplacement, pas doublon", addOuting(l2, sortie("a", "2026-09-05", "running", 12)).length, 2);
-eq("suppression", removeOuting(l2, "a").map((o) => o.id), ["b"]);
-eq("suppression d'un inconnu sans effet", removeOuting(l2, "zzz").length, 2);
+eq("suppression : ne s'affiche plus", liveOutings(removeOuting(l2, "a")).map((o) => o.id), ["b"]);
+eq("mais reste dans le journal, marquée", removeOuting(l2, "a", 7).find((o) => o.id === "a").deletedAt, 7);
+eq("suppression d'un inconnu sans effet", removeOuting(l2, "zzz"), l2);
+eq("l'ajout date la sortie", addOuting([], sortie("x", "2026-09-05", "running", 1), 42)[0].updatedAt, 42);
 
 // --- totaux
 eq("kilomètres à pied", totalKm(l2, ON_FOOT), 10);
 eq("kilomètres à vélo", totalKm(l2, ON_WHEELS), 30);
 eq("tout confondu", totalKm(l2), 40);
 eq("une sortie sans distance ne fausse rien", totalKm(addOuting(l2, sortie("c", "2026-09-06", "running", null))), 40);
+eq("une sortie supprimée ne compte plus", totalKm(removeOuting(l2, "b")), 10);
 
-// --- arbitrage
-eq("rien ici, rien là-bas", decideOutingsSync([], 0, null), { action: "none" });
-eq("du local jamais remonté", decideOutingsSync(l2, 5, null), { action: "push" });
-eq("le distant est plus récent", decideOutingsSync(l2, 5, { outings: l1, updatedAt: 9 }).action, "pull");
-eq("le local est plus récent", decideOutingsSync(l2, 12, { outings: l1, updatedAt: 9 }), { action: "push" });
-eq("identiques : on se tait", decideOutingsSync(l1, 12, { outings: l1, updatedAt: 9 }), { action: "none" });
+// --- fusion sortie par sortie
+const datee = (id, date, km, updatedAt) => ({ ...sortie(id, date, "running", km), updatedAt });
+let d = decideOutingsSync([], []);
+eq("rien ici, rien là-bas", d, { toStore: null, toPush: null });
+d = decideOutingsSync([datee("a", "2026-09-05", 10, 5)], []);
+eq("du local jamais remonté", d.toPush.map((o) => o.id), ["a"]);
+d = decideOutingsSync([], [datee("a", "2026-09-05", 10, 5)]);
+eq("rien ici : on descend", d.toStore.map((o) => o.id), ["a"]);
+d = decideOutingsSync([datee("a", "2026-09-05", 10, 5)], [datee("b", "2026-09-01", 30, 6)]);
+eq("chacun la sienne : les deux survivent, triées", d.toStore.map((o) => o.id), ["b", "a"]);
+d = decideOutingsSync(d.toStore, [datee("b", "2026-09-01", 30, 6)]);
+eq("au tour suivant, la locale remonte", d.toPush.map((o) => o.id), ["a"]);
+const supprimee = removeOuting([datee("a", "2026-09-05", 10, 5)], "a", 9);
+d = decideOutingsSync(supprimee, [datee("a", "2026-09-05", 10, 5)]);
+eq("la suppression remonte", d.toPush[0].deletedAt, 9);
+d = decideOutingsSync([datee("a", "2026-09-05", 10, 5)], supprimee);
+eq("et descend", liveOutings(d.toStore), []);
+d = decideOutingsSync([datee("a", "2026-09-05", 12, 8)], [datee("a", "2026-09-05", 10, 5)]);
+eq("correction locale plus récente : on remonte", d.toPush[0].km, 12);
+d = decideOutingsSync([datee("a", "2026-09-05", 10, 5)], [datee("a", "2026-09-05", 12, 8)]);
+eq("correction distante plus récente : on descend", d.toStore[0].km, 12);
+eq("relecture d'une ancienne sortie : date zéro", parseOutings([sortie("a", "2026-09-01", "running", 10)])[0].updatedAt, 0);
+d = decideOutingsSync(parseOutings([sortie("a", "2026-09-01", "running", 10)]), parseOutings([sortie("a", "2026-09-01", "running", 10)]));
+eq("identiques : on se tait", d, { toStore: null, toPush: null });
+eq("relecture d'une supprimée : la marque reste", parseOutings(supprimee)[0].deletedAt, 9);
 
 // --- hauts faits
 const etat = (hist, sorties) => Object.fromEntries(evaluateLadders(hist, 80, {}, sorties).map((p) => [p.ladder.id, p]));

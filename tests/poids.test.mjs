@@ -1,4 +1,4 @@
-import { parseWeights, addWeight, removeWeight, latestWeight, weightOn, weightTrend, decideWeightsSync } from "../.tests-build/bodyWeight.mjs";
+import { parseWeights, addWeight, removeWeight, latestWeight, weightOn, weightTrend, decideWeightsSync, liveWeights } from "../.tests-build/bodyWeight.mjs";
 import { evaluateLadders, derivedUnlocks } from "../.tests-build/achievements.mjs";
 
 let ko = 0;
@@ -10,7 +10,7 @@ const eq = (nom, a, b) => {
 const w = (date, kg) => ({ date, kg });
 
 // --- relecture
-eq("pesée valide", parseWeights([w("2026-09-01", 80)]), [w("2026-09-01", 80)]);
+eq("pesée valide, datée zéro faute de date", parseWeights([w("2026-09-01", 80)]), [{ ...w("2026-09-01", 80), updatedAt: 0 }]);
 eq("triées par date", parseWeights([w("2026-09-05", 79), w("2026-09-01", 80)]).map((e) => e.date), ["2026-09-01", "2026-09-05"]);
 eq("doublon de jour : la première relue est gardée", parseWeights([w("2026-09-01", 80), w("2026-09-01", 81)]).length, 1);
 eq("date malformée écartée", parseWeights([w("01/09/2026", 80)]), []);
@@ -26,7 +26,9 @@ l = addWeight(l, w("2026-09-01", 81));
 eq("même jour : remplacement", l.find((e) => e.date === "2026-09-01").kg, 81);
 eq("sans doublon", l.length, 2);
 eq("dernière pesée", latestWeight(l).date, "2026-09-03");
-eq("retrait", removeWeight(l, "2026-09-01").length, 1);
+eq("retrait : ne s'affiche plus", liveWeights(removeWeight(l, "2026-09-01")).length, 1);
+eq("mais reste, marqué", removeWeight(l, "2026-09-01", 7).find((e) => e.date === "2026-09-01").deletedAt, 7);
+eq("l'ajout date la pesée", addWeight([], w("2026-09-01", 80), 42)[0].updatedAt, 42);
 eq("liste vide : pas de dernière", latestWeight([]), null);
 
 // --- poids connu à une date
@@ -46,9 +48,22 @@ eq("pas de pesée assez ancienne pour 30 jours", s30, null);
 eq("à 14 jours : depuis le 1er", weightTrend(t, 14).from.date, "2026-09-01");
 eq("une seule pesée : pas de tendance", weightTrend([w("2026-09-01", 80)], 7), null);
 
-// --- arbitrage (règle commune)
-eq("local plus récent", decideWeightsSync(t, 12, { entries: [], updatedAt: 9 }), { action: "push" });
-eq("distant plus récent", decideWeightsSync(t, 5, { entries: j, updatedAt: 9 }).action, "pull");
+// --- fusion jour par jour
+const p = (date, kg, updatedAt) => ({ date, kg, updatedAt });
+let d = decideWeightsSync([p("2026-09-01", 80, 5)], [p("2026-09-03", 79, 6)]);
+eq("deux appareils, deux jours : les deux survivent, triées", d.toStore.map((e) => e.date), ["2026-09-01", "2026-09-03"]);
+d = decideWeightsSync([p("2026-09-01", 81, 9)], [p("2026-09-01", 80, 5)]);
+eq("même jour, correction locale plus récente : on remonte", d.toPush[0].kg, 81);
+d = decideWeightsSync([p("2026-09-01", 80, 5)], [p("2026-09-01", 81, 9)]);
+eq("même jour, distante plus récente : on descend", d.toStore[0].kg, 81);
+const retiree = removeWeight([p("2026-09-01", 80, 5)], "2026-09-01", 9);
+eq("retrait : la pesée reste marquée", retiree[0].deletedAt, 9);
+eq("la dernière pesée l'ignore", latestWeight(retiree), null);
+eq("le poids connu l'ignore aussi", weightOn(retiree, "2026-09-05"), null);
+eq("la tendance aussi", weightTrend([...retiree, p("2026-09-08", 79, 5)], 7), null);
+d = decideWeightsSync(retiree, [p("2026-09-01", 80, 5)]);
+eq("le retrait remonte", d.toPush[0].deletedAt, 9);
+eq("re-noter un jour retiré le fait revivre", latestWeight(addWeight(retiree, w("2026-09-01", 82), 12)).kg, 82);
 
 // --- hauts faits : la part du poids de corps suit le poids de l'époque
 const seance = (iso, kg) => ({ id: iso, dayId: "j1", dayCode: "J1", dayTitle: "T", startedAt: iso, finishedAt: iso, durationSeconds: 60,
