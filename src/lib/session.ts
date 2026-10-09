@@ -1,4 +1,4 @@
-import { linkSuperset } from "@/lib/superset";
+import { leaveSuperset, linkSuperset } from "@/lib/superset";
 import type { Day, Exercise, ExerciseLog, SessionLog, SetLog } from "@/lib/types";
 
 function emptySets(count: number): SetLog[] {
@@ -162,6 +162,11 @@ export function sessionSteps(plan: PlannedExercise[]): SessionStep[] {
 /** Noue deux exercices de la séance en super-set — voir `linkSuperset`. */
 export function linkInSession(session: SessionLog, idA: string, idB: string): SessionLog {
   return { ...session, exercises: linkSuperset(session.exercises, (e) => e.exerciseId, idA, idB) };
+}
+
+/** Sort un exercice de son super-set pour cette séance — voir `leaveSuperset`. */
+export function leaveInSession(session: SessionLog, exerciseId: string): SessionLog {
+  return { ...session, exercises: leaveSuperset(session.exercises, (e) => e.exerciseId, exerciseId) };
 }
 
 /** Les exercices de la séance regroupés par catégorie, dans l'ordre d'apparition. */

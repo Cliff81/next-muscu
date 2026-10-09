@@ -12,21 +12,40 @@ import type { SetLog } from "@/lib/types";
  * répétition de plus — sans quitter le déroulé. Chaque frappe écrit dans la
  * séance : rien à enregistrer, fermer suffit. Décocher une série la remet à
  * faire ; le déroulé y reviendra une fois la série en cours terminée.
+ *
+ * C'est aussi là qu'on noue ou dénoue un super-set pour cette séance seule —
+ * la machine voisine est libre, autant enchaîner. Le programme n'en sait
+ * rien : pour la prochaine fois, le lien se pose sur la fiche du jour.
  */
 export function SessionExerciseEditor({
   item,
+  plan,
+  letters,
   onUpdateSet,
+  onLink,
+  onLeave,
   onRemove,
   onClose,
 }: {
   item: PlannedExercise;
+  /** Toute la séance, pour proposer avec qui nouer. */
+  plan: PlannedExercise[];
+  letters: Map<string, string>;
   onUpdateSet: (exerciseId: string, setIndex: number, patch: Partial<SetLog>) => void;
+  onLink: (otherExerciseId: string) => void;
+  onLeave: () => void;
   /** Présent pour un exercice ajouté en séance : ceux du programme restent. */
   onRemove: (() => void) | null;
   onClose: () => void;
 }) {
   const name = frenchName(item.exercise.name);
   const id = item.log.exerciseId;
+  const partners = item.superset
+    ? plan.filter((p) => p.superset === item.superset && p.log.exerciseId !== id)
+    : [];
+  const candidates = plan.filter(
+    (p) => p.log.exerciseId !== id && (!item.superset || p.superset !== item.superset)
+  );
 
   return (
     <Modal title={`Corriger · ${name}`} onClose={onClose}>
@@ -75,6 +94,52 @@ export function SessionExerciseEditor({
             </label>
           </div>
         ))}
+      </div>
+      <div className="mt-4 rounded-lg border border-border bg-surface2 px-3 py-2 text-[0.78rem]">
+        <div className="text-[0.65rem] tracking-[0.1em] text-accent2 uppercase">Super-set</div>
+        {item.superset ? (
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-muted">
+              Super-set {letters.get(item.superset)} avec{" "}
+              <span className="text-text">
+                {partners.map((p) => frenchName(p.exercise.name)).join(", ")}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={onLeave}
+              className="rounded-full border border-border px-3 py-0.5 text-[0.68rem] text-muted transition hover:border-neg hover:text-neg"
+            >
+              Sortir du super-set
+            </button>
+          </div>
+        ) : (
+          <p className="mt-1 text-muted">Pas de super-set : les séries se suivent avec leur repos.</p>
+        )}
+        {candidates.length > 0 && (
+          <label className="mt-2 flex flex-wrap items-center gap-2 text-muted">
+            {item.superset ? "Y ajouter" : "Nouer avec"}
+            <select
+              value=""
+              aria-label={`Nouer ${name} en super-set avec`}
+              onChange={(e) => {
+                if (e.target.value) onLink(e.target.value);
+              }}
+              className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-text focus:border-accent focus:outline-none"
+            >
+              <option value="">— choisir un exercice —</option>
+              {candidates.map((p) => (
+                <option key={p.log.exerciseId} value={p.log.exerciseId}>
+                  {frenchName(p.exercise.name)}
+                  {p.superset ? ` (super-set ${letters.get(p.superset)})` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <p className="mt-1.5 text-[0.68rem] text-muted">
+          Pour cette séance seulement. Pour la prochaine fois, lie-les dans le programme.
+        </p>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button

@@ -1,6 +1,6 @@
 import { freshSupersetKey, linkSuperset, splitSupersetBefore, leaveSuperset, supersetLetters } from "../.tests-build/superset.mjs";
 import { linkSuperset as linkInProgram, splitSuperset, addExercise, reorderExercises } from "../.tests-build/editProgram.mjs";
-import { buildSessionFromDay, sessionPlan, sessionSteps, linkInSession, addExerciseToSession } from "../.tests-build/session.mjs";
+import { buildSessionFromDay, sessionPlan, sessionSteps, linkInSession, leaveInSession, addExerciseToSession } from "../.tests-build/session.mjs";
 import { workMinutes } from "../.tests-build/sessionDuration.mjs";
 
 let ko = 0;
@@ -76,6 +76,13 @@ const ajout = exo("ajout-1", "Cable Crossover", 3, 60);
 const nouee = linkInSession(addExerciseToSession(session, "c", "Pectoraux", ajout), "c", "ajout-1");
 eq("nouer en séance", nouee.exercises.map((e) => e.superset ?? null), ["ss-1", "ss-1", "ss-2", "ss-2", null]);
 eq("le déroulé alterne le nouveau duo", sessionSteps(sessionPlan(lie.days[0], nouee)).map((s) => s.exerciseId).slice(7, 13), ["c", "ajout-1", "c", "ajout-1", "c", "ajout-1"]);
+
+// --- séance : dénouer
+eq("sortir d'un duo le dissout", leaveInSession(session, "a").exercises.map((e) => e.superset ?? null), [null, null, null, null]);
+const trio = linkInSession(session, "a", "c");
+eq("rejoindre un duo en séance", trio.exercises.map((e) => e.superset ?? null), ["ss-1", "ss-1", "ss-1", null]);
+eq("sortir d'un trio laisse le duo", leaveInSession(trio, "b").exercises.map((e) => e.superset ?? null), ["ss-1", null, "ss-1", null]);
+eq("le déroulé suit : a et c alternent, b seul", sessionSteps(sessionPlan(lie.days[0], leaveInSession(trio, "b"))).map((s) => s.exerciseId).slice(0, 6), ["a", "c", "a", "c", "a", "c"]);
 
 console.log(ko ? `\n${ko} échec(s)` : "\nTout passe");
 process.exit(ko ? 1 : 0);

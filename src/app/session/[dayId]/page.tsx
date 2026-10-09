@@ -31,8 +31,18 @@ export default function SessionPage() {
     );
   }
 
-  const { session, start, updateSet, addExercise, removeExercise, finish, abandon, elapsedSeconds } =
-    activeSession;
+  const {
+    session,
+    start,
+    updateSet,
+    addExercise,
+    removeExercise,
+    linkSuperset,
+    leaveSuperset,
+    finish,
+    abandon,
+    elapsedSeconds,
+  } = activeSession;
 
   function handleFinish() {
     setRecap(finish());
@@ -78,6 +88,8 @@ export default function SessionPage() {
             onUpdateSet={updateSet}
             onAddExercise={addExercise}
             onRemoveExercise={removeExercise}
+            onLinkSuperset={linkSuperset}
+            onLeaveSuperset={leaveSuperset}
             onFinish={handleFinish}
             onAbandon={handleAbandon}
           />

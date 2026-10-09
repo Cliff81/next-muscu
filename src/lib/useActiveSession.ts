@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   addExerciseToSession,
   buildSessionFromDay,
+  leaveInSession,
   linkInSession,
   removeExerciseFromSession,
 } from "@/lib/session";
@@ -59,6 +60,18 @@ export function useActiveSession(day: Day) {
     []
   );
 
+  const linkSuperset = useCallback((idA: string, idB: string) => {
+    const current = activeSessionStore.get();
+    if (!current) return;
+    activeSessionStore.set(linkInSession(current, idA, idB));
+  }, []);
+
+  const leaveSuperset = useCallback((exerciseId: string) => {
+    const current = activeSessionStore.get();
+    if (!current) return;
+    activeSessionStore.set(leaveInSession(current, exerciseId));
+  }, []);
+
   const removeExercise = useCallback((exerciseId: string) => {
     const current = activeSessionStore.get();
     if (!current) return;
@@ -94,5 +107,16 @@ export function useActiveSession(day: Day) {
       )
     : 0;
 
-  return { session, start, updateSet, addExercise, removeExercise, finish, abandon, elapsedSeconds };
+  return {
+    session,
+    start,
+    updateSet,
+    addExercise,
+    removeExercise,
+    linkSuperset,
+    leaveSuperset,
+    finish,
+    abandon,
+    elapsedSeconds,
+  };
 }

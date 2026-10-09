@@ -61,6 +61,8 @@ type Props = {
     supersetWith: string | null
   ) => void;
   onRemoveExercise: (exerciseId: string) => void;
+  onLinkSuperset: (idA: string, idB: string) => void;
+  onLeaveSuperset: (exerciseId: string) => void;
   onFinish: () => void;
   onAbandon: () => void;
 };
@@ -84,6 +86,8 @@ export function SessionRunner({
   onUpdateSet,
   onAddExercise,
   onRemoveExercise,
+  onLinkSuperset,
+  onLeaveSuperset,
   onFinish,
   onAbandon,
 }: Props) {
@@ -611,7 +615,11 @@ export function SessionRunner({
       {editingItem && (
         <SessionExerciseEditor
           item={editingItem}
+          plan={plan}
+          letters={letters}
           onUpdateSet={onUpdateSet}
+          onLink={(other) => onLinkSuperset(editingItem.log.exerciseId, other)}
+          onLeave={() => onLeaveSuperset(editingItem.log.exerciseId)}
           onRemove={editingItem.log.added ? () => onRemoveExercise(editingItem.log.exerciseId) : null}
           onClose={() => setEditing(null)}
         />
