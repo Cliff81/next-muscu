@@ -185,27 +185,31 @@ export function removeSection(program: Program, dayId: string, index: number): P
 }
 
 /**
- * Ajoute un exercice du catalogue à une catégorie. Séries, répétitions et
- * repos reprennent les réglages du générateur selon la nature du mouvement :
- * un exercice posé à la main est programmé comme les autres.
+ * Une fiche d'exercice tirée du catalogue. Séries, répétitions et repos
+ * reprennent les réglages du générateur selon la nature du mouvement : un
+ * exercice posé à la main est programmé comme les autres.
  */
+export function exerciseFromCatalog(id: string, entry: CatalogExercise): Exercise {
+  return {
+    id,
+    name: entry.name,
+    catalogId: entry.id,
+    images: entry.images,
+    ...catalogDetails(entry),
+    ...setsAndReps("split", entry.mechanic === "compound"),
+  };
+}
+
+/** Ajoute un exercice du catalogue à une catégorie. */
 export function addExercise(
   program: Program,
   dayId: string,
   sectionIndex: number,
   entry: CatalogExercise
 ): Program {
-  const compound = entry.mechanic === "compound";
   const day = program.days.find((d) => d.id === dayId);
   const slug = (day?.sections[sectionIndex]?.title ?? "exo").toLowerCase().replace(/\W+/g, "");
-  const exercise: Exercise = {
-    id: freeExerciseId(program, `${dayId}-${slug}`),
-    name: entry.name,
-    catalogId: entry.id,
-    images: entry.images,
-    ...catalogDetails(entry),
-    ...setsAndReps("split", compound),
-  };
+  const exercise = exerciseFromCatalog(freeExerciseId(program, `${dayId}-${slug}`), entry);
   return onDay(program, dayId, (d) => ({
     ...d,
     sections: d.sections.map((s, i) =>

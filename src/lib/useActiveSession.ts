@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { buildSessionFromDay } from "@/lib/session";
+import { addExerciseToSession, buildSessionFromDay, removeExerciseFromSession } from "@/lib/session";
 import { activeSessionStore, historyStore } from "@/lib/stores";
-import type { Day, SessionLog, SetLog } from "@/lib/types";
+import type { Day, Exercise, SessionLog, SetLog } from "@/lib/types";
 
 export function useActiveSession(day: Day) {
   const storedSession = activeSessionStore.useValue();
@@ -38,6 +38,21 @@ export function useActiveSession(day: Day) {
     activeSessionStore.set(next);
   }, []);
 
+  const addExercise = useCallback(
+    (afterExerciseId: string | null, sectionTitle: string, exercise: Exercise) => {
+      const current = activeSessionStore.get();
+      if (!current) return;
+      activeSessionStore.set(addExerciseToSession(current, afterExerciseId, sectionTitle, exercise));
+    },
+    []
+  );
+
+  const removeExercise = useCallback((exerciseId: string) => {
+    const current = activeSessionStore.get();
+    if (!current) return;
+    activeSessionStore.set(removeExerciseFromSession(current, exerciseId));
+  }, []);
+
   /** Rend la séance enregistrée, pour que l'appelant puisse en faire le bilan. */
   const finish = useCallback((): SessionLog | null => {
     const current = activeSessionStore.get();
@@ -67,5 +82,5 @@ export function useActiveSession(day: Day) {
       )
     : 0;
 
-  return { session, start, updateSet, finish, abandon, elapsedSeconds };
+  return { session, start, updateSet, addExercise, removeExercise, finish, abandon, elapsedSeconds };
 }

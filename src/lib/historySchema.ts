@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { exerciseSchema } from "@/lib/programSchema";
 
 /**
  * Forme d'une séance réalisée.
@@ -18,6 +19,7 @@ const exerciseLogSchema = z.object({
   exerciseId: z.string().min(1),
   exerciseName: z.string().min(1),
   sets: z.array(setLogSchema),
+  added: z.object({ sectionTitle: z.string(), exercise: exerciseSchema }).optional(),
 });
 
 export const sessionLogSchema = z.object({

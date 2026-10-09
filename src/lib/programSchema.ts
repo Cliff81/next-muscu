@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const exerciseSchema = z.object({
+export const exerciseSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   sub: z.string().optional(),

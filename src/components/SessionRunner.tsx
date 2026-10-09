@@ -24,8 +24,20 @@ import { useHistory } from "@/lib/useHistory";
 import { keepScreenAwake, releaseWakeLock } from "@/lib/wakeLock";
 import { LOAD_LABELS, loadLevel } from "@/lib/loadLevel";
 import { RestTimer } from "@/components/RestTimer";
-import { formatDuration, sessionProgress } from "@/lib/session";
-import type { Day, SessionLog, SetLog } from "@/lib/types";
+import { SessionAddExercise } from "@/components/SessionAddExercise";
+import { SessionExerciseEditor } from "@/components/SessionExerciseEditor";
+import type { CatalogExercise } from "@/lib/catalog";
+import { addExercise as addExerciseToProgram, exerciseFromCatalog } from "@/lib/editProgram";
+import { programStore } from "@/lib/stores";
+import {
+  formatDuration,
+  freeSessionExerciseId,
+  groupBySection,
+  sessionPlan,
+  sessionProgress,
+  type PlannedExercise,
+} from "@/lib/session";
+import type { Day, Exercise, SessionLog, SetLog } from "@/lib/types";
 
 type RestState = { key: string; label: string; duration: number };
 
@@ -51,28 +63,29 @@ type Props = {
   session: SessionLog;
   elapsedSeconds: number;
   onUpdateSet: (exerciseId: string, setIndex: number, patch: Partial<SetLog>) => void;
+  onAddExercise: (afterExerciseId: string | null, sectionTitle: string, exercise: Exercise) => void;
+  onRemoveExercise: (exerciseId: string) => void;
   onFinish: () => void;
   onAbandon: () => void;
 };
 
-function buildFlatSteps(day: Day): FlatStep[] {
-  return day.sections.flatMap((section) =>
-    section.exercises.flatMap((ex) =>
-      Array.from({ length: ex.series }, (_, i) => ({
-        exerciseId: ex.id,
-        exerciseName: ex.name,
-        exerciseSub: ex.sub,
-        exerciseTip: ex.tip,
-        exerciseDemo: ex.demo,
-        exerciseImages: ex.images,
-        sectionTitle: section.title,
-        setIndex: i,
-        series: ex.series,
-        reps: ex.reps,
-        restLabel: ex.restLabel,
-        restSeconds: ex.restSeconds,
-      }))
-    )
+/** Une étape par série du journal : c'est la séance qui dicte l'ordre, pas le programme. */
+function buildFlatSteps(plan: PlannedExercise[]): FlatStep[] {
+  return plan.flatMap(({ sectionTitle, exercise: ex, log }) =>
+    log.sets.map((set) => ({
+      exerciseId: log.exerciseId,
+      exerciseName: ex.name,
+      exerciseSub: ex.sub,
+      exerciseTip: ex.tip,
+      exerciseDemo: ex.demo,
+      exerciseImages: ex.images,
+      sectionTitle,
+      setIndex: set.setIndex,
+      series: log.sets.length,
+      reps: ex.reps,
+      restLabel: ex.restLabel,
+      restSeconds: ex.restSeconds,
+    }))
   );
 }
 
@@ -88,11 +101,31 @@ function firstIncompletePointer(session: SessionLog, steps: FlatStep[]): FocusPo
   return null;
 }
 
-export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFinish, onAbandon }: Props) {
-  const flatSteps = useMemo(() => buildFlatSteps(day), [day]);
-  const [focus, setFocus] = useState<FocusPointer | null>(() => firstIncompletePointer(session, flatSteps));
+export function SessionRunner({
+  day,
+  session,
+  elapsedSeconds,
+  onUpdateSet,
+  onAddExercise,
+  onRemoveExercise,
+  onFinish,
+  onAbandon,
+}: Props) {
+  const plan = useMemo(() => sessionPlan(day, session), [day, session]);
+  const flatSteps = useMemo(() => buildFlatSteps(plan), [plan]);
+  /*
+   * La série en cours est celle qu'on a choisie en validant la précédente,
+   * tant qu'elle existe encore et reste à faire. Sinon — fin de séance, série
+   * décochée dans le correcteur, exercice retiré — c'est la première qui reste
+   * à faire : c'est ainsi qu'une série rouverte revient dans le déroulé.
+   */
+  const [chosenFocus, setFocus] = useState<FocusPointer | null>(null);
+  const chosenSet = chosenFocus ? getSet(session, chosenFocus.exerciseId, chosenFocus.setIndex) : undefined;
+  const focus = chosenSet && !chosenSet.completed ? chosenFocus : firstIncompletePointer(session, flatSteps);
   const [started, setStarted] = useState(false);
   const [rest, setRest] = useState<RestState | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const editingItem = editing ? (plan.find((item) => item.log.exerciseId === editing) ?? null) : null;
 
   const progress = sessionProgress(session);
   const focusPos = focus ? flatSteps.findIndex((s) => s.exerciseId === focus.exerciseId && s.setIndex === focus.setIndex) : -1;
@@ -211,6 +244,21 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
   function handleRestDone() {
     setRest(null);
     setStarted(true);
+  }
+
+  // L'exercice ajouté entre juste après celui en cours, dans sa catégorie ;
+  // séance finie, il s'ajoute à la fin.
+  const addSectionTitle =
+    currentStep?.sectionTitle ?? plan[plan.length - 1]?.sectionTitle ?? day.sections[0]?.title ?? "Ajouts";
+  const addSectionIndex = day.sections.findIndex((s) => s.title === addSectionTitle);
+
+  function handleAddExercise(chosen: CatalogExercise, alsoInProgram: boolean) {
+    const exercise = exerciseFromCatalog(freeSessionExerciseId(session), chosen);
+    onAddExercise(currentStep?.exerciseId ?? null, addSectionTitle, exercise);
+    if (alsoInProgram && day.sections.length > 0) {
+      const sectionIndex = addSectionIndex >= 0 ? addSectionIndex : day.sections.length - 1;
+      programStore.set(addExerciseToProgram(programStore.get(), day.id, sectionIndex, chosen));
+    }
   }
 
   return (
@@ -480,22 +528,32 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
       ) : (
         <div className="rounded-xl border border-accent/50 bg-accent/5 p-6 text-center">
           <h3 className="font-display text-2xl text-accent">Séance terminée !</h3>
-          <p className="mt-1 text-sm text-muted">Toutes les séries sont faites — valide la séance en haut.</p>
+          <p className="mt-1 text-sm text-muted">
+            Toutes les séries sont faites — valide la séance en haut, ou ajoute un exercice ci-dessous.
+          </p>
         </div>
       )}
 
       <div className="mt-8 flex flex-col gap-4">
-        {day.sections.map((section) => (
-          <div key={section.title}>
-            <div className="font-display mb-2 text-lg tracking-[0.03em] text-accent2">{section.title}</div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[0.72rem] text-muted">
+            Touche ✎ pour corriger une série déjà faite.
+          </p>
+          <SessionAddExercise
+            sectionTitle={addSectionTitle}
+            muscles={day.sections[addSectionIndex]?.muscles}
+            onChoose={handleAddExercise}
+          />
+        </div>
+        {groupBySection(plan).map((group, groupIndex) => (
+          <div key={`${group.title}-${groupIndex}`}>
+            <div className="font-display mb-2 text-lg tracking-[0.03em] text-accent2">{group.title}</div>
             <div className="flex flex-col gap-2">
-              {section.exercises.map((exerciseDef) => {
-                const log = session.exercises.find((e) => e.exerciseId === exerciseDef.id);
-                if (!log) return null;
-                const isCurrentExercise = currentStep?.exerciseId === exerciseDef.id;
+              {group.items.map(({ exercise: exerciseDef, log }) => {
+                const isCurrentExercise = currentStep?.exerciseId === log.exerciseId;
                 return (
                   <div
-                    key={exerciseDef.id}
+                    key={log.exerciseId}
                     className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-2.5 ${
                       isCurrentExercise ? "border-accent/40 bg-accent/5" : "border-border bg-surface"
                     }`}
@@ -507,24 +565,40 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
                         images={exerciseDef.images}
                         demo={exerciseDef.demo}
                       />
+                      {log.added && (
+                        <span className="rounded-full border border-accent/40 px-1.5 text-[0.6rem] tracking-[0.08em] text-accent uppercase">
+                          ajouté
+                        </span>
+                      )}
                     </span>
-                    <div className="flex gap-1.5">
-                      {log.sets.map((set) => {
-                        const isCurrentSet = isCurrentExercise && currentStep?.setIndex === set.setIndex;
-                        return (
-                          <span
-                            key={set.setIndex}
-                            title={set.completed && set.weight ? `${set.weight} kg` : undefined}
-                            className={`h-2.5 w-2.5 rounded-full ${
-                              set.completed
-                                ? "bg-accent"
-                                : isCurrentSet
-                                  ? "border-2 border-accent"
-                                  : "border border-border bg-surface2"
-                            }`}
-                          />
-                        );
-                      })}
+                    <div className="flex items-center gap-3">
+                      <div className="flex gap-1.5">
+                        {log.sets.map((set) => {
+                          const isCurrentSet = isCurrentExercise && currentStep?.setIndex === set.setIndex;
+                          return (
+                            <span
+                              key={set.setIndex}
+                              title={set.completed && set.weight ? `${set.weight} kg` : undefined}
+                              className={`h-2.5 w-2.5 rounded-full ${
+                                set.completed
+                                  ? "bg-accent"
+                                  : isCurrentSet
+                                    ? "border-2 border-accent"
+                                    : "border border-border bg-surface2"
+                              }`}
+                            />
+                          );
+                        })}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditing(log.exerciseId)}
+                        aria-label={`Corriger ${frenchName(exerciseDef.name)}`}
+                        title="Corriger les séries"
+                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border text-[0.7rem] leading-none text-muted transition hover:border-accent hover:text-accent"
+                      >
+                        ✎
+                      </button>
                     </div>
                   </div>
                 );
@@ -533,6 +607,15 @@ export function SessionRunner({ day, session, elapsedSeconds, onUpdateSet, onFin
           </div>
         ))}
       </div>
+
+      {editingItem && (
+        <SessionExerciseEditor
+          item={editingItem}
+          onUpdateSet={onUpdateSet}
+          onRemove={editingItem.log.added ? () => onRemoveExercise(editingItem.log.exerciseId) : null}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }

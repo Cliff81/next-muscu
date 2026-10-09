@@ -69,6 +69,11 @@ export type ExerciseLog = {
   exerciseId: string;
   exerciseName: string;
   sets: SetLog[];
+  /**
+   * Exercice ajouté en cours de séance, que le programme ne connaît pas : la
+   * séance emporte sa fiche pour pouvoir le dérouler et le relire plus tard.
+   */
+  added?: { sectionTitle: string; exercise: Exercise };
 };
 
 export type SessionLog = {
