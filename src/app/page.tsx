@@ -6,17 +6,19 @@ import { DayTabs } from "@/components/DayTabs";
 import { Header } from "@/components/Header";
 import { ThisWeek } from "@/components/ThisWeek";
 import { addDay, removeDay } from "@/lib/editProgram";
-import { activeSessionStore, programStore } from "@/lib/stores";
+import { activeSessionStore, programStore, weekChoiceStore } from "@/lib/stores";
 import { useHistory } from "@/lib/useHistory";
 import { useProgram } from "@/lib/useProgram";
 import { weekStatus } from "@/lib/week";
+import { activeMode } from "@/lib/weekChoice";
 
 export default function Home() {
   const { program } = useProgram();
   const { history } = useHistory();
   const [editing, setEditing] = useState(false);
 
-  const status = weekStatus(program.days, history);
+  const weekChoice = weekChoiceStore.useValue();
+  const status = weekStatus(program.days, history, new Date(), activeMode(weekChoice));
   // Tant qu'on n'a rien choisi, la journée affichée est la prochaine à faire :
   // ouvrir l'application, c'est tomber sur la séance du jour. Dérivé plutôt
   // que posé dans un effet — l'historique arrive après la première image.

@@ -13,6 +13,7 @@ import { parseNotes, type Notes } from "@/lib/notes";
 import { liveOutings, parseOutings, type Outing } from "@/lib/outings";
 import { DEFAULT_SETTINGS, parseSettings, type Settings } from "@/lib/settings";
 import { parseEngraved, type Engraved } from "@/lib/trophies";
+import { parseWeekChoice, type WeekChoice } from "@/lib/weekChoice";
 import type { Program, SessionLog } from "@/lib/types";
 
 const programStoreRaw = createLocalStore<Program>(
@@ -129,6 +130,13 @@ export const notesStore = createLocalStore<Notes>("muscu:notes", {}, parseNotes)
 
 /** Semaines allégées — voir `deload.ts`. Suivent le profil vers Convex. */
 export const deloadsStore = createLocalStore<Deload[]>("muscu:deloads", [], parseDeloads);
+
+/** Choix de début de semaine — voir `weekChoice.ts`. Suit le profil vers Convex. */
+export const weekChoiceStore = createLocalStore<WeekChoice | null>(
+  "muscu:weekChoice",
+  null,
+  parseWeekChoice
+);
 
 /** Réglages — voir `settings.ts`. Suivent le profil vers Convex. */
 export const settingsStore = createLocalStore<Settings>("muscu:settings", DEFAULT_SETTINGS, parseSettings);

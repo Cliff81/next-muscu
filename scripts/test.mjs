@@ -11,7 +11,7 @@ import { spawnSync } from "node:child_process";
 const LIBS = [
   "achievements", "bodyWeight", "calendar", "customProgram", "deload", "editProgram", "entrySync", "lastWrite", "mergeProgram",
   "mergeWorkouts", "muscleVolume", "notes", "outings", "overload", "progressData",
-  "session", "sessionDuration", "settings", "superset", "timedSet", "trophies", "warmup", "week", "weightCoach",
+  "session", "sessionDuration", "settings", "superset", "timedSet", "trophies", "warmup", "week", "weekChoice", "weightCoach",
 ];
 
 await build({

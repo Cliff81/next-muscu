@@ -37,6 +37,8 @@ const MEASUREMENTS = {
   settings: v.optional(v.any()),
   /** Semaines allégées en cours, décrites côté client par `deload.ts`. */
   deloads: v.optional(v.any()),
+  /** Choix de début de semaine, décrit côté client par `weekChoice.ts`. */
+  weekChoice: v.optional(v.any()),
 };
 
 /**

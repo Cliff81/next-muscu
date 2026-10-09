@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { dayKey, weekSummary, weeklyStreak } from "@/lib/calendar";
 import { decimal } from "@/lib/format";
-import { outingsStore } from "@/lib/stores";
+import { outingsStore, weekChoiceStore } from "@/lib/stores";
 import type { Day, SessionLog } from "@/lib/types";
 import { useMounted } from "@/lib/useMounted";
-import type { WeekStatus } from "@/lib/week";
+import { resumePoint, type WeekStatus } from "@/lib/week";
+import { decide, needsWeekChoice } from "@/lib/weekChoice";
 
 const LETTRES = ["L", "M", "M", "J", "V", "S", "D"];
 
@@ -36,12 +37,46 @@ export function ThisWeek({ days, history, status }: Props) {
   const serie = useMemo(() => (mounted ? weeklyStreak(history) : 0), [mounted, history]);
   const aujourdhui = mounted ? dayKey(new Date()) : null;
 
+  // Début de semaine : repartir du début, ou reprendre où l'on en était ?
+  const choice = weekChoiceStore.useValue();
+  const question = mounted && needsWeekChoice(days, history, choice, new Date());
+  const reprise = question ? resumePoint(days, history, new Date()) : null;
+  const derniere = reprise ? days.find((d) => d.id === reprise.lastDayId) : null;
+  const suivante = reprise ? days.find((d) => d.id === reprise.nextDayId) : null;
+  const premiere = days[0];
+
   const faites = status.done.size;
   const prevues = days.length;
   const prochaine = days.find((d) => d.id === status.next) ?? null;
   const complete = prevues > 0 && status.next === null;
 
   return (
+    <>
+    {reprise && derniere && suivante && premiere && (
+      <section className="mt-2 rounded-2xl border border-accent/40 bg-accent-soft px-5 py-4">
+        <div className="text-[0.65rem] tracking-[0.15em] text-accent uppercase">Nouvelle semaine</div>
+        <p className="mt-1 text-[0.85rem] text-text">
+          Tu t&apos;étais arrêté à <span className="font-display">{derniere.code}</span> · {derniere.title}.
+          On reprend la suite, ou on repart du début ?
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => weekChoiceStore.set(decide("resume"))}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-fg transition hover:opacity-90"
+          >
+            Reprendre à {suivante.code} · {suivante.title} ▸
+          </button>
+          <button
+            type="button"
+            onClick={() => weekChoiceStore.set(decide("restart"))}
+            className="rounded-md border border-border px-4 py-2 text-sm text-text transition hover:border-accent"
+          >
+            Repartir de {premiere.code} · {premiere.title}
+          </button>
+        </div>
+      </section>
+    )}
     <section className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-4 rounded-2xl border border-border bg-surface px-5 py-4">
       <div className="min-w-[7rem]">
         <div className="text-[0.65rem] tracking-[0.15em] text-muted uppercase">Cette semaine</div>
@@ -101,5 +136,6 @@ export function ThisWeek({ days, history, status }: Props) {
         ) : null}
       </div>
     </section>
+    </>
   );
 }

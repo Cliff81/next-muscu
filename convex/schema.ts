@@ -43,6 +43,7 @@ export default defineSchema({
     goal: v.optional(v.string()),
     settings: v.optional(v.any()),
     deloads: v.optional(v.any()),
+    weekChoice: v.optional(v.any()),
   }).index("by_subject", ["subject"]),
 
   programs: defineTable({
