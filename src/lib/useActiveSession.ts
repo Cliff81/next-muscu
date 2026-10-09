@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { addExerciseToSession, buildSessionFromDay, removeExerciseFromSession } from "@/lib/session";
+import {
+  addExerciseToSession,
+  buildSessionFromDay,
+  linkInSession,
+  removeExerciseFromSession,
+} from "@/lib/session";
 import { activeSessionStore, historyStore } from "@/lib/stores";
 import type { Day, Exercise, SessionLog, SetLog } from "@/lib/types";
 
@@ -38,11 +43,18 @@ export function useActiveSession(day: Day) {
     activeSessionStore.set(next);
   }, []);
 
+  /** `supersetWith` : l'exercice avec lequel nouer le nouveau en super-set. */
   const addExercise = useCallback(
-    (afterExerciseId: string | null, sectionTitle: string, exercise: Exercise) => {
+    (
+      afterExerciseId: string | null,
+      sectionTitle: string,
+      exercise: Exercise,
+      supersetWith: string | null = null
+    ) => {
       const current = activeSessionStore.get();
       if (!current) return;
-      activeSessionStore.set(addExerciseToSession(current, afterExerciseId, sectionTitle, exercise));
+      const added = addExerciseToSession(current, afterExerciseId, sectionTitle, exercise);
+      activeSessionStore.set(supersetWith ? linkInSession(added, supersetWith, exercise.id) : added);
     },
     []
   );

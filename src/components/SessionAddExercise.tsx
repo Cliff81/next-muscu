@@ -13,15 +13,19 @@ import type { CatalogExercise } from "@/lib/catalog";
 export function SessionAddExercise({
   sectionTitle,
   muscles,
+  supersetWith,
   onChoose,
 }: {
   /** Catégorie dans laquelle l'exercice sera rangé. */
   sectionTitle: string;
   muscles?: string[];
-  onChoose: (chosen: CatalogExercise, alsoInProgram: boolean) => void;
+  /** Nom affiché de l'exercice en cours, avec lequel proposer un super-set. */
+  supersetWith: string | null;
+  onChoose: (chosen: CatalogExercise, alsoInProgram: boolean, asSuperset: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [alsoInProgram, setAlsoInProgram] = useState(false);
+  const [asSuperset, setAsSuperset] = useState(false);
 
   return (
     <>
@@ -44,11 +48,22 @@ export function SessionAddExercise({
             />
             L&apos;ajouter aussi au programme, pour les prochaines séances
           </label>
+          {supersetWith && (
+            <label className="mb-2 flex items-center gap-2 text-[0.78rem] text-muted">
+              <input
+                type="checkbox"
+                checked={asSuperset}
+                onChange={(e) => setAsSuperset(e.target.checked)}
+                className="accent-[var(--accent)]"
+              />
+              En super-set avec « {supersetWith} » : les séries s&apos;enchaînent sans repos
+            </label>
+          )}
           <ExerciseChooser
             current={null}
             muscles={muscles}
             onChoose={(chosen) => {
-              onChoose(chosen, alsoInProgram);
+              onChoose(chosen, alsoInProgram, asSuperset && supersetWith !== null);
               setOpen(false);
             }}
           />

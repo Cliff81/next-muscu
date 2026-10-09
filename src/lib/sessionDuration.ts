@@ -39,12 +39,28 @@ export function warmupMinutes(warmup: string): number {
   return Math.round(nombres.reduce((a, b) => a + b, 0) / nombres.length);
 }
 
-/** Minutes de travail pour une liste d'exercices, hors échauffement. */
+/**
+ * Minutes de travail pour une liste d'exercices, hors échauffement.
+ *
+ * Dans un super-set, le repos ne vient qu'à la fin du tour : il compte une
+ * fois par tour, au plus long des membres, et non une fois par série.
+ */
 export function workMinutes(exercises: Exercise[]): number {
-  const seconds = exercises.reduce(
-    (total, e) => total + e.series * (setSeconds(e.reps) + e.restSeconds) + TRANSITION_SECONDS,
-    0
-  );
+  const rests = new Map<string, { rounds: number; rest: number }>();
+  let seconds = 0;
+  for (const e of exercises) {
+    seconds += e.series * setSeconds(e.reps) + TRANSITION_SECONDS;
+    if (!e.superset) {
+      seconds += e.series * e.restSeconds;
+      continue;
+    }
+    const group = rests.get(e.superset) ?? { rounds: 0, rest: 0 };
+    rests.set(e.superset, {
+      rounds: Math.max(group.rounds, e.series),
+      rest: Math.max(group.rest, e.restSeconds),
+    });
+  }
+  for (const group of rests.values()) seconds += group.rounds * group.rest;
   return (seconds * MARGIN) / 60;
 }
 

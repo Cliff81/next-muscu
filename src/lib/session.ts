@@ -1,3 +1,4 @@
+import { linkSuperset } from "@/lib/superset";
 import type { Day, Exercise, ExerciseLog, SessionLog, SetLog } from "@/lib/types";
 
 function emptySets(count: number): SetLog[] {
@@ -15,6 +16,7 @@ export function buildSessionFromDay(day: Day): SessionLog {
       exerciseId: exercise.id,
       exerciseName: exercise.name,
       sets: emptySets(exercise.series),
+      ...(exercise.superset ? { superset: exercise.superset } : {}),
     }))
   );
 
@@ -35,6 +37,8 @@ export type PlannedExercise = {
   sectionTitle: string;
   exercise: Exercise;
   log: ExerciseLog;
+  /** Clé du super-set dans cette séance, s'il y en a un. */
+  superset?: string;
 };
 
 /**
@@ -53,8 +57,9 @@ export function sessionPlan(day: Day, session: SessionLog): PlannedExercise[] {
     }
   }
   return session.exercises.map((log) => {
+    const superset = log.superset ? { superset: log.superset } : {};
     const known = log.added ?? fromDay.get(log.exerciseId);
-    if (known) return { ...known, log };
+    if (known) return { ...known, log, ...superset };
     return {
       sectionTitle: "Hors programme",
       exercise: {
@@ -66,8 +71,97 @@ export function sessionPlan(day: Day, session: SessionLog): PlannedExercise[] {
         restSeconds: 0,
       },
       log,
+      ...superset,
     };
   });
+}
+
+/** Une série à faire, dans l'ordre du déroulé. */
+export type SessionStep = {
+  exerciseId: string;
+  exerciseName: string;
+  exerciseSub?: string;
+  exerciseTip?: string;
+  exerciseDemo?: string;
+  exerciseImages?: string[];
+  sectionTitle: string;
+  setIndex: number;
+  series: number;
+  reps: string;
+  restLabel: string;
+  restSeconds: number;
+  /** La série suivante s'enchaîne sans repos : on est au milieu d'un tour de super-set. */
+  chained: boolean;
+  /** Le super-set auquel la série appartient, et ses partenaires (noms d'exercices). */
+  superset: { key: string; partners: string[] } | null;
+};
+
+function stepOf(item: PlannedExercise, set: SetLog): SessionStep {
+  const { exercise: ex, log } = item;
+  return {
+    exerciseId: log.exerciseId,
+    exerciseName: ex.name,
+    exerciseSub: ex.sub,
+    exerciseTip: ex.tip,
+    exerciseDemo: ex.demo,
+    exerciseImages: ex.images,
+    sectionTitle: item.sectionTitle,
+    setIndex: set.setIndex,
+    series: log.sets.length,
+    reps: ex.reps,
+    restLabel: ex.restLabel,
+    restSeconds: ex.restSeconds,
+    chained: false,
+    superset: null,
+  };
+}
+
+/**
+ * Les séries dans l'ordre où on les fait.
+ *
+ * Un exercice seul déroule ses séries l'une après l'autre. Un super-set se
+ * fait par tours : la première série de chacun de ses membres, enchaînées
+ * sans repos, puis le repos — le plus long des membres —, puis le tour
+ * suivant. Il prend place là où son premier membre apparaît ; un membre qui a
+ * plus de séries que les autres finit seul.
+ */
+export function sessionSteps(plan: PlannedExercise[]): SessionStep[] {
+  const steps: SessionStep[] = [];
+  const done = new Set<string>();
+  for (const item of plan) {
+    if (!item.superset) {
+      steps.push(...item.log.sets.map((set) => stepOf(item, set)));
+      continue;
+    }
+    if (done.has(item.superset)) continue;
+    done.add(item.superset);
+    const members = plan.filter((p) => p.superset === item.superset);
+    const rounds = Math.max(...members.map((m) => m.log.sets.length));
+    const rest = Math.max(...members.map((m) => m.exercise.restSeconds));
+    const restLabel = members.find((m) => m.exercise.restSeconds === rest)?.exercise.restLabel ?? "";
+    for (let round = 0; round < rounds; round++) {
+      const turn = members.filter((m) => m.log.sets[round]);
+      turn.forEach((m, i) => {
+        const last = i === turn.length - 1;
+        steps.push({
+          ...stepOf(m, m.log.sets[round]),
+          chained: !last,
+          restSeconds: last ? rest : 0,
+          restLabel: last ? restLabel : "enchaîné",
+          superset: {
+            key: item.superset as string,
+            partners: members.filter((o) => o !== m).map((o) => o.exercise.name),
+          },
+        });
+      });
+    }
+  }
+  return steps;
+}
+
+/** Noue deux exercices de la séance en super-set — voir `linkSuperset`. */
+export function linkInSession(session: SessionLog, idA: string, idB: string): SessionLog {
+  return { ...session, exercises: linkSuperset(session.exercises, (e) => e.exerciseId, idA, idB) };
 }
 
 /** Les exercices de la séance regroupés par catégorie, dans l'ordre d'apparition. */

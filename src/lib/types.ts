@@ -13,6 +13,11 @@ export type Exercise = {
   catalogId?: string;
   /** Photos début/fin du mouvement, chemins relatifs au dépôt d'origine. */
   images?: string[];
+  /**
+   * Clé partagée par les exercices d'un même super-set : leurs séries
+   * s'enchaînent sans repos, le repos ne vient qu'à la fin du tour.
+   */
+  superset?: string;
 };
 
 export type Section = {
@@ -74,6 +79,8 @@ export type ExerciseLog = {
    * séance emporte sa fiche pour pouvoir le dérouler et le relire plus tard.
    */
   added?: { sectionTitle: string; exercise: Exercise };
+  /** Super-set dans cette séance — copié du programme au départ, ou noué en séance. */
+  superset?: string;
 };
 
 export type SessionLog = {

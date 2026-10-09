@@ -1,6 +1,7 @@
 import { catalogDetails, setsAndReps } from "@/lib/generateProgram";
 import { MUSCLE_LABELS, type CatalogExercise, type Muscle } from "@/lib/catalog";
 import { dayMinutes, roundMinutes } from "@/lib/sessionDuration";
+import { linkSuperset as linkItems, splitSupersetBefore as splitItems } from "@/lib/superset";
 import type { Day, Exercise, Program, Section } from "@/lib/types";
 
 /**
@@ -256,6 +257,46 @@ export function removeExercise(program: Program, dayId: string, exerciseId: stri
       exercises: s.exercises.filter((e) => e.id !== exerciseId),
     })),
   }));
+}
+
+/** Les exercices d'une catégorie passés par une transformation. */
+function onSection(
+  program: Program,
+  dayId: string,
+  sectionIndex: number,
+  change: (exercises: Exercise[]) => Exercise[]
+): Program {
+  return onDay(program, dayId, (day) => ({
+    ...day,
+    sections: day.sections.map((s, i) => (i === sectionIndex ? { ...s, exercises: change(s.exercises) } : s)),
+  }));
+}
+
+/** La catégorie qui contient un exercice, ou -1. */
+function sectionOf(program: Program, dayId: string, exerciseId: string): number {
+  const day = program.days.find((d) => d.id === dayId);
+  return day ? day.sections.findIndex((s) => s.exercises.some((e) => e.id === exerciseId)) : -1;
+}
+
+/**
+ * Met deux exercices d'une même catégorie en super-set. Deux catégories ne se
+ * mélangent pas : un super-set se lit d'un bloc dans la fiche du jour.
+ */
+export function linkSuperset(program: Program, dayId: string, idA: string, idB: string): Program {
+  const sectionIndex = sectionOf(program, dayId, idA);
+  if (sectionIndex === -1 || sectionIndex !== sectionOf(program, dayId, idB)) return program;
+  return onSection(program, dayId, sectionIndex, (exercises) =>
+    linkItems(exercises, (e) => e.id, idA, idB)
+  );
+}
+
+/** Coupe un super-set juste avant cet exercice — voir `splitSupersetBefore`. */
+export function splitSuperset(program: Program, dayId: string, exerciseId: string): Program {
+  const sectionIndex = sectionOf(program, dayId, exerciseId);
+  if (sectionIndex === -1) return program;
+  return onSection(program, dayId, sectionIndex, (exercises) =>
+    splitItems(exercises, (e) => e.id, exerciseId)
+  );
 }
 
 /** Séries et répétitions, réglées à la main. */

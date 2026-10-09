@@ -12,6 +12,7 @@ export const exerciseSchema = z.object({
   demo: z.string().optional(),
   catalogId: z.string().optional(),
   images: z.array(z.string()).optional(),
+  superset: z.string().optional(),
 });
 
 const sectionSchema = z.object({

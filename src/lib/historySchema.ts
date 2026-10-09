@@ -20,6 +20,7 @@ const exerciseLogSchema = z.object({
   exerciseName: z.string().min(1),
   sets: z.array(setLogSchema),
   added: z.object({ sectionTitle: z.string(), exercise: exerciseSchema }).optional(),
+  superset: z.string().optional(),
 });
 
 export const sessionLogSchema = z.object({

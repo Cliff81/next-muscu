@@ -27,7 +27,11 @@ import { RestTimer } from "@/components/RestTimer";
 import { SessionAddExercise } from "@/components/SessionAddExercise";
 import { SessionExerciseEditor } from "@/components/SessionExerciseEditor";
 import type { CatalogExercise } from "@/lib/catalog";
-import { addExercise as addExerciseToProgram, exerciseFromCatalog } from "@/lib/editProgram";
+import {
+  addExercise as addExerciseToProgram,
+  exerciseFromCatalog,
+  linkSuperset as linkInProgram,
+} from "@/lib/editProgram";
 import { programStore } from "@/lib/stores";
 import {
   formatDuration,
@@ -35,26 +39,13 @@ import {
   groupBySection,
   sessionPlan,
   sessionProgress,
-  type PlannedExercise,
+  sessionSteps,
+  type SessionStep,
 } from "@/lib/session";
+import { supersetLetters } from "@/lib/superset";
 import type { Day, Exercise, SessionLog, SetLog } from "@/lib/types";
 
 type RestState = { key: string; label: string; duration: number };
-
-type FlatStep = {
-  exerciseId: string;
-  exerciseName: string;
-  exerciseSub?: string;
-  exerciseTip?: string;
-  exerciseDemo?: string;
-  exerciseImages?: string[];
-  sectionTitle: string;
-  setIndex: number;
-  series: number;
-  reps: string;
-  restLabel: string;
-  restSeconds: number;
-};
 
 type FocusPointer = { exerciseId: string; setIndex: number };
 
@@ -63,37 +54,22 @@ type Props = {
   session: SessionLog;
   elapsedSeconds: number;
   onUpdateSet: (exerciseId: string, setIndex: number, patch: Partial<SetLog>) => void;
-  onAddExercise: (afterExerciseId: string | null, sectionTitle: string, exercise: Exercise) => void;
+  onAddExercise: (
+    afterExerciseId: string | null,
+    sectionTitle: string,
+    exercise: Exercise,
+    supersetWith: string | null
+  ) => void;
   onRemoveExercise: (exerciseId: string) => void;
   onFinish: () => void;
   onAbandon: () => void;
 };
 
-/** Une étape par série du journal : c'est la séance qui dicte l'ordre, pas le programme. */
-function buildFlatSteps(plan: PlannedExercise[]): FlatStep[] {
-  return plan.flatMap(({ sectionTitle, exercise: ex, log }) =>
-    log.sets.map((set) => ({
-      exerciseId: log.exerciseId,
-      exerciseName: ex.name,
-      exerciseSub: ex.sub,
-      exerciseTip: ex.tip,
-      exerciseDemo: ex.demo,
-      exerciseImages: ex.images,
-      sectionTitle,
-      setIndex: set.setIndex,
-      series: log.sets.length,
-      reps: ex.reps,
-      restLabel: ex.restLabel,
-      restSeconds: ex.restSeconds,
-    }))
-  );
-}
-
 function getSet(session: SessionLog, exerciseId: string, setIndex: number): SetLog | undefined {
   return session.exercises.find((e) => e.exerciseId === exerciseId)?.sets.find((s) => s.setIndex === setIndex);
 }
 
-function firstIncompletePointer(session: SessionLog, steps: FlatStep[]): FocusPointer | null {
+function firstIncompletePointer(session: SessionLog, steps: SessionStep[]): FocusPointer | null {
   for (const step of steps) {
     const set = getSet(session, step.exerciseId, step.setIndex);
     if (set && !set.completed) return { exerciseId: step.exerciseId, setIndex: step.setIndex };
@@ -112,7 +88,8 @@ export function SessionRunner({
   onAbandon,
 }: Props) {
   const plan = useMemo(() => sessionPlan(day, session), [day, session]);
-  const flatSteps = useMemo(() => buildFlatSteps(plan), [plan]);
+  const flatSteps = useMemo(() => sessionSteps(plan), [plan]);
+  const letters = useMemo(() => supersetLetters(plan), [plan]);
   /*
    * La série en cours est celle qu'on a choisie en validant la précédente,
    * tant qu'elle existe encore et reste à faire. Sinon — fin de séance, série
@@ -230,9 +207,10 @@ export function SessionRunner({
     } else {
       setFocus(null);
     }
-    setStarted(false);
+    // Au milieu d'un tour de super-set, on passe au partenaire sans s'arrêter.
+    setStarted(Boolean(nextStep) && currentStep.chained);
 
-    if (nextStep && currentStep.restSeconds > 0) {
+    if (nextStep && !currentStep.chained && currentStep.restSeconds > 0) {
       setRest({
         key: `${currentStep.exerciseId}-${currentStep.setIndex}`,
         label: frenchName(currentStep.exerciseName),
@@ -252,12 +230,17 @@ export function SessionRunner({
     currentStep?.sectionTitle ?? plan[plan.length - 1]?.sectionTitle ?? day.sections[0]?.title ?? "Ajouts";
   const addSectionIndex = day.sections.findIndex((s) => s.title === addSectionTitle);
 
-  function handleAddExercise(chosen: CatalogExercise, alsoInProgram: boolean) {
+  function handleAddExercise(chosen: CatalogExercise, alsoInProgram: boolean, asSuperset: boolean) {
     const exercise = exerciseFromCatalog(freeSessionExerciseId(session), chosen);
-    onAddExercise(currentStep?.exerciseId ?? null, addSectionTitle, exercise);
+    const anchor = currentStep?.exerciseId ?? null;
+    onAddExercise(anchor, addSectionTitle, exercise, asSuperset ? anchor : null);
     if (alsoInProgram && day.sections.length > 0) {
       const sectionIndex = addSectionIndex >= 0 ? addSectionIndex : day.sections.length - 1;
-      programStore.set(addExerciseToProgram(programStore.get(), day.id, sectionIndex, chosen));
+      let program = addExerciseToProgram(programStore.get(), day.id, sectionIndex, chosen);
+      const section = program.days.find((d) => d.id === day.id)?.sections[sectionIndex];
+      const posed = section?.exercises[section.exercises.length - 1];
+      if (asSuperset && anchor && posed) program = linkInProgram(program, day.id, anchor, posed.id);
+      programStore.set(program);
     }
   }
 
@@ -337,9 +320,17 @@ export function SessionRunner({
               />
             </h3>
             <div className="font-display text-lg text-accent">
+              {currentStep.superset ? `Super-set ${letters.get(currentStep.superset.key) ?? ""} · ` : ""}
               Série {currentStep.setIndex + 1}/{currentStep.series}
             </div>
           </div>
+          {currentStep.superset && (
+            <p className="mt-1 text-[0.78rem] text-accent2">
+              {currentStep.chained
+                ? `Enchaîne sans repos avec ${currentStep.superset.partners.map(frenchName).join(", ")}.`
+                : `Fin du tour avec ${currentStep.superset.partners.map(frenchName).join(", ")} : repos après cette série.`}
+            </p>
+          )}
           {currentStep.exerciseSub && <p className="mt-0.5 text-[0.8rem] text-muted">{currentStep.exerciseSub}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[0.78rem] text-muted">
             {currentLoad && <LoadGauge level={currentLoad} />}
@@ -542,6 +533,7 @@ export function SessionRunner({
           <SessionAddExercise
             sectionTitle={addSectionTitle}
             muscles={day.sections[addSectionIndex]?.muscles}
+            supersetWith={currentStep ? frenchName(currentStep.exerciseName) : null}
             onChoose={handleAddExercise}
           />
         </div>
@@ -549,16 +541,24 @@ export function SessionRunner({
           <div key={`${group.title}-${groupIndex}`}>
             <div className="font-display mb-2 text-lg tracking-[0.03em] text-accent2">{group.title}</div>
             <div className="flex flex-col gap-2">
-              {group.items.map(({ exercise: exerciseDef, log }) => {
+              {group.items.map(({ exercise: exerciseDef, log, superset }) => {
                 const isCurrentExercise = currentStep?.exerciseId === log.exerciseId;
                 return (
                   <div
                     key={log.exerciseId}
                     className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-2.5 ${
                       isCurrentExercise ? "border-accent/40 bg-accent/5" : "border-border bg-surface"
-                    }`}
+                    } ${superset ? "border-l-4 border-l-accent2" : ""}`}
                   >
                     <span className="flex items-center gap-1.5 text-[0.82rem] text-text">
+                      {superset && (
+                        <span
+                          title="Super-set : séries enchaînées sans repos"
+                          className="rounded-full border border-accent2/50 px-1.5 text-[0.6rem] tracking-[0.08em] text-accent2 uppercase"
+                        >
+                          SS {letters.get(superset)}
+                        </span>
+                      )}
                       {frenchName(exerciseDef.name)}
                       <ExerciseDemo
                         name={frenchName(exerciseDef.name)}

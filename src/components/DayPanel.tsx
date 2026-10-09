@@ -9,16 +9,19 @@ import type { CatalogExercise } from "@/lib/catalog";
 import {
   addExercise,
   addSection,
+  linkSuperset,
   removeExercise,
   removeSection,
   renameDay,
   renameSection,
   reorderExercises,
   setSetsAndReps,
+  splitSuperset,
 } from "@/lib/editProgram";
 import { LOAD_LABELS, loadLevel } from "@/lib/loadLevel";
 import { noteFor } from "@/lib/notes";
 import { activeSessionStore, notesStore, programStore } from "@/lib/stores";
+import { supersetLetters } from "@/lib/superset";
 import { swapExercise } from "@/lib/swapExercise";
 import { useReorder } from "@/lib/useReorder";
 import { frenchName } from "@/lib/exerciseNames";
@@ -193,20 +196,32 @@ export function DayPanel({ day, editing = false, onRemoveDay, doneAt = null, isN
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                {ordonnes(section.exercises, tri.ordre(sectionIndex, ids(section))).map((exercise) => {
+                {ordonnes(section.exercises, tri.ordre(sectionIndex, ids(section))).map((exercise, index, ranges) => {
                   const load = loadLevel(exercise.reps);
                   const ligne = tri.ligne(sectionIndex, exercise.id);
+                  const letters = supersetLetters(section.exercises);
+                  const suivant = ranges[index + 1];
+                  // Le lien se lit entre deux lignes voisines qui partagent un super-set.
+                  const lie = Boolean(suivant && exercise.superset && suivant.superset === exercise.superset);
                   return (
+                    <div key={exercise.id} className="contents">
                     <div
-                      key={exercise.id}
                       ref={ligne.ref}
                       style={ligne.style}
                       className={`grid grid-cols-1 items-center gap-1 rounded-lg border bg-surface p-4 sm:grid-cols-[2fr_0.6fr_1fr_1.4fr] sm:gap-2 ${
                         ligne.actif ? "border-accent shadow-lg select-none" : "border-border"
-                      }`}
+                      } ${exercise.superset ? "border-l-4 border-l-accent2" : ""}`}
                     >
                       <div className="text-[0.9rem] font-medium">
                         <span className="inline-flex items-center gap-1.5">
+                          {exercise.superset && (
+                            <span
+                              title="Super-set : séries enchaînées sans repos"
+                              className="rounded-full border border-accent2/50 px-1.5 text-[0.6rem] tracking-[0.08em] text-accent2 uppercase"
+                            >
+                              SS {letters.get(exercise.superset)}
+                            </span>
+                          )}
                           {editing && (
                             <button
                               type="button"
@@ -306,6 +321,33 @@ export function DayPanel({ day, editing = false, onRemoveDay, doneAt = null, isN
                       ) : (
                         <div className="text-[0.78rem] text-[#b8b8b8]">{exercise.tip}</div>
                       )}
+                    </div>
+                    {suivant && (editing || lie) && (
+                      <div className="-my-1 flex justify-center">
+                        {editing ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              apply((p) =>
+                                lie
+                                  ? splitSuperset(p, day.id, suivant.id)
+                                  : linkSuperset(p, day.id, exercise.id, suivant.id)
+                              )
+                            }
+                            aria-pressed={lie}
+                            className={`rounded-full border px-3 py-0.5 text-[0.68rem] transition ${
+                              lie
+                                ? "border-accent2/60 bg-surface2 text-accent2 hover:border-neg hover:text-neg"
+                                : "border-border text-muted hover:border-accent2 hover:text-accent2"
+                            }`}
+                          >
+                            {lie ? "⛓ Super-set — délier" : "⛓ Lier en super-set"}
+                          </button>
+                        ) : (
+                          <span className="text-[0.68rem] text-accent2">⛓ enchaîné sans repos</span>
+                        )}
+                      </div>
+                    )}
                     </div>
                   );
                 })}
