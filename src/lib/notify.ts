@@ -1,7 +1,9 @@
 "use client";
 
+import { formatDuration } from "@/lib/session";
+
 /**
- * Notification de fin de repos.
+ * Notifications de séance : le repos qui file, puis sa fin.
  *
  * Passe par le service worker quand il est là : une notification affichée par
  * lui survit à un onglet mis en veille, là où `new Notification(...)` dépend
@@ -36,26 +38,72 @@ export async function askNotifications(): Promise<boolean> {
   }
 }
 
-export async function notifyRestOver(label: string): Promise<void> {
+/**
+ * Une seule notification pour la séance, remplacée à chaque étape plutôt
+ * qu'empilée : le repos qui file, puis la fin du repos, jusqu'à la série
+ * validée.
+ */
+const SESSION_TAG = "stronger-session";
+
+async function showSessionNotification(title: string, options: NotificationOptions): Promise<void> {
   if (!notificationsGranted()) return;
-  const options: NotificationOptions = {
-    body: label,
+  const full = {
     icon: "/icon-192.png",
     badge: "/icon-192.png",
-    tag: "stronger-rest",
-    // Remplace la précédente au lieu de les empiler série après série.
-    renotify: true,
-    vibrate: [200, 100, 200],
+    tag: SESSION_TAG,
+    // Elle reste dans le volet tant que la série n'est pas validée.
+    requireInteraction: true,
+    ...options,
   } as NotificationOptions;
-
   try {
     const registration = await navigator.serviceWorker?.getRegistration();
     if (registration) {
-      await registration.showNotification("Repos terminé", options);
+      await registration.showNotification(title, full);
       return;
     }
-    new Notification("Repos terminé", options);
+    new Notification(title, full);
   } catch {
     // Notification refusée à l'affichage : le bip et la vibration restent.
+  }
+}
+
+function clock(ms: number): string {
+  return new Date(ms).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+/**
+ * Le repos en cours, dans le volet de notifications. Une notification web ne
+ * sait pas décompter seule : le titre donne l'heure de reprise, qui reste
+ * juste même quand le navigateur gèle la page ; le temps restant, lui, n'est
+ * à jour que tant que la page tourne.
+ */
+export async function notifyRestRunning(deadline: number, next: string): Promise<void> {
+  const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+  await showSessionNotification(`Repos — reprise à ${clock(deadline)}`, {
+    body: `Encore ${formatDuration(remaining)} · ensuite : ${next}`,
+    // Une mise à jour du décompte ne doit ni sonner ni vibrer.
+    silent: true,
+    renotify: false,
+    timestamp: deadline,
+  } as NotificationOptions);
+}
+
+export async function notifyRestOver(label: string): Promise<void> {
+  await showSessionNotification("Repos terminé", {
+    body: label,
+    // Remplace le décompte, et cette fois se fait entendre.
+    renotify: true,
+    vibrate: [200, 100, 200],
+  } as NotificationOptions);
+}
+
+/** Série validée, repos passé ou séance quittée : la notification n'a plus lieu d'être. */
+export async function closeSessionNotification(): Promise<void> {
+  try {
+    const registration = await navigator.serviceWorker?.getRegistration();
+    const shown = (await registration?.getNotifications({ tag: SESSION_TAG })) ?? [];
+    shown.forEach((n) => n.close());
+  } catch {
+    // Rien à fermer, ou pas de service worker : rien à faire.
   }
 }

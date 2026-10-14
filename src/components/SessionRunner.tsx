@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ExerciseDemo } from "@/components/ExerciseDemo";
 import { LoadGauge } from "@/components/LoadGauge";
-import { askNotifications } from "@/lib/notify";
+import { askNotifications, closeSessionNotification } from "@/lib/notify";
 import { frenchName } from "@/lib/exerciseNames";
 import { detectPlateau } from "@/lib/progressData";
 import { warmupRamp } from "@/lib/warmup";
@@ -46,7 +46,7 @@ import {
 import { supersetLetters } from "@/lib/superset";
 import type { Day, Exercise, SessionLog, SetLog } from "@/lib/types";
 
-type RestState = { key: string; label: string; duration: number };
+type RestState = { key: string; label: string; next: string; duration: number };
 
 type FocusPointer = { exerciseId: string; setIndex: number };
 
@@ -179,6 +179,8 @@ export function SessionRunner({
     keepScreenAwake();
     return releaseWakeLock;
   }, []);
+  // Séance terminée, abandonnée ou quittée : plus de repos à annoncer.
+  useEffect(() => () => void closeSessionNotification(), []);
   // Les deux fois d'avant, sous la dernière : une tendance, pas un jour.
   const avant = currentStep ? recentPerformances(history, currentStep.exerciseName, session.id, 3).slice(1) : [];
   /*
@@ -223,8 +225,13 @@ export function SessionRunner({
       setRest({
         key: `${currentStep.exerciseId}-${currentStep.setIndex}`,
         label: frenchName(currentStep.exerciseName),
+        next: `${frenchName(nextStep.exerciseName)}, série ${nextStep.setIndex + 1}/${nextStep.series}`,
         duration: currentStep.restSeconds,
       });
+    } else {
+      // Pas de repos derrière : la notification du repos précédent est périmée.
+      // Avec un repos, la nouvelle la remplace d'elle-même.
+      void closeSessionNotification();
     }
   }
 
@@ -290,6 +297,7 @@ export function SessionRunner({
           key={rest.key}
           totalSeconds={rest.duration}
           label={rest.label}
+          next={rest.next}
           onFinish={handleRestDone}
           onSkip={handleRestDone}
         />

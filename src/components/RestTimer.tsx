@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { playBeep, playPreAlert } from "@/lib/beep";
-import { notifyRestOver } from "@/lib/notify";
+import { closeSessionNotification, notifyRestOver, notifyRestRunning } from "@/lib/notify";
 import { settingsStore } from "@/lib/stores";
 
 type Props = {
   totalSeconds: number;
   label: string;
+  /** La série qui suit le repos, pour la notification. */
+  next: string;
   onFinish: () => void;
   onSkip: () => void;
 };
@@ -25,7 +27,7 @@ type Props = {
  * Monté avec une `key` propre à chaque repos, pour que son état reparte de zéro
  * par remontage plutôt que par un effet.
  */
-export function RestTimer({ totalSeconds, label, onFinish, onSkip }: Props) {
+export function RestTimer({ totalSeconds, label, next, onFinish, onSkip }: Props) {
   const [deadline, setDeadline] = useState(() => Date.now() + totalSeconds * 1000);
   const [remaining, setRemaining] = useState(totalSeconds);
   const fired = useRef(false);
@@ -38,10 +40,21 @@ export function RestTimer({ totalSeconds, label, onFinish, onSkip }: Props) {
 
   useEffect(() => {
     let timer = 0;
+    /*
+     * Le décompte dans le volet de notifications : posé dès le début du repos,
+     * rafraîchi toutes les cinq secondes tant que la page est en arrière-plan.
+     * Au premier plan, l'écran suffit ; le rafraîchir là ne ferait que du bruit.
+     */
+    let notified = Date.now();
+    void notifyRestRunning(deadline, next);
 
     const tick = () => {
       const reste = Math.ceil((deadline - Date.now()) / 1000);
       setRemaining(reste);
+      if (reste > 0 && document.visibilityState === "hidden" && Date.now() - notified >= 5000) {
+        notified = Date.now();
+        void notifyRestRunning(deadline, next);
+      }
       // Pré-alerte : un seul signal, plus doux, N secondes avant la fin — le
       // temps de se relever. Pas si le repos entier est plus court que N : le
       // signal partirait avec le repos, sans rien prévenir.
@@ -69,6 +82,10 @@ export function RestTimer({ totalSeconds, label, onFinish, onSkip }: Props) {
       if (document.visibilityState === "visible") {
         window.clearTimeout(timer);
         tick();
+      } else if (!fired.current) {
+        // En quittant l'application, le décompte affiché repart à jour.
+        notified = Date.now();
+        void notifyRestRunning(deadline, next);
       }
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -76,7 +93,7 @@ export function RestTimer({ totalSeconds, label, onFinish, onSkip }: Props) {
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [deadline, label, preAlert, sound, vibrate, totalSeconds]);
+  }, [deadline, label, next, preAlert, sound, vibrate, totalSeconds]);
 
   const clamped = Math.max(0, remaining);
   const minutes = Math.floor(clamped / 60);
@@ -110,7 +127,10 @@ export function RestTimer({ totalSeconds, label, onFinish, onSkip }: Props) {
             +15s
           </button>
           <button
-            onClick={onSkip}
+            onClick={() => {
+              void closeSessionNotification();
+              onSkip();
+            }}
             className="rounded-md border border-border px-3 py-2 text-xs text-muted transition hover:border-accent2 hover:text-accent2"
           >
             Passer
