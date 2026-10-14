@@ -24,6 +24,7 @@ import { useHistory } from "@/lib/useHistory";
 import { keepScreenAwake, releaseWakeLock } from "@/lib/wakeLock";
 import { LOAD_LABELS, loadLevel } from "@/lib/loadLevel";
 import { RestTimer } from "@/components/RestTimer";
+import { Modal } from "@/components/Modal";
 import { SessionAddExercise } from "@/components/SessionAddExercise";
 import { SessionExerciseEditor } from "@/components/SessionExerciseEditor";
 import type { CatalogExercise } from "@/lib/catalog";
@@ -61,6 +62,8 @@ type Props = {
     supersetWith: string | null
   ) => void;
   onRemoveExercise: (exerciseId: string) => void;
+  /** Fait passer un exercice avant un autre : la machine prévue est prise. */
+  onMoveBefore: (exerciseId: string, beforeExerciseId: string) => void;
   onLinkSuperset: (idA: string, idB: string) => void;
   onLeaveSuperset: (exerciseId: string) => void;
   onFinish: () => void;
@@ -86,6 +89,7 @@ export function SessionRunner({
   onUpdateSet,
   onAddExercise,
   onRemoveExercise,
+  onMoveBefore,
   onLinkSuperset,
   onLeaveSuperset,
   onFinish,
@@ -106,6 +110,7 @@ export function SessionRunner({
   const [started, setStarted] = useState(false);
   const [rest, setRest] = useState<RestState | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
   const editingItem = editing ? (plan.find((item) => item.log.exerciseId === editing) ?? null) : null;
 
   const progress = sessionProgress(session);
@@ -221,6 +226,36 @@ export function SessionRunner({
         duration: currentStep.restSeconds,
       });
     }
+  }
+
+  /*
+   * Les exercices vers lesquels basculer : ceux qui ont encore des séries à
+   * faire, hors de l'exercice en cours et de son super-set — ses partenaires
+   * se font dans le même tour, ce n'est pas une autre machine.
+   */
+  const inCurrentBlock = (exerciseId: string, superset?: string) =>
+    exerciseId === currentStep?.exerciseId ||
+    (superset !== undefined && superset === currentStep?.superset?.key);
+  const switchTargets = currentStep
+    ? plan.filter(
+        (item) => !inCurrentBlock(item.log.exerciseId, item.superset) && item.log.sets.some((s) => !s.completed)
+      )
+    : [];
+
+  function handleSwitch(exerciseId: string) {
+    if (!currentStep) return;
+    const key = plan.find((item) => item.log.exerciseId === exerciseId)?.superset;
+    // L'ordre des séries d'un bloc ne bouge pas avec lui : sa première série à
+    // faire dans le déroulé actuel est celle par laquelle on reprend.
+    const target = flatSteps.find(
+      (step) =>
+        (step.exerciseId === exerciseId || (key !== undefined && step.superset?.key === key)) &&
+        !getSet(session, step.exerciseId, step.setIndex)?.completed
+    );
+    onMoveBefore(exerciseId, currentStep.exerciseId);
+    if (target) setFocus({ exerciseId: target.exerciseId, setIndex: target.setIndex });
+    setStarted(false);
+    setSwitching(false);
   }
 
   function handleRestDone() {
@@ -344,6 +379,16 @@ export function SessionRunner({
               {currentStep.exerciseTip ? ` · ${currentStep.exerciseTip}` : ""}
             </span>
           </div>
+
+          {switchTargets.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSwitching(true)}
+              className="mt-2 block text-[0.75rem] text-muted underline decoration-dotted underline-offset-2 transition hover:text-accent"
+            >
+              Machine prise ? Passer à un autre exercice
+            </button>
+          )}
 
           <ExerciseNote
             key={currentStep.exerciseName}
@@ -594,6 +639,17 @@ export function SessionRunner({
                           );
                         })}
                       </div>
+                      {switchTargets.some((t) => t.log.exerciseId === log.exerciseId) && (
+                        <button
+                          type="button"
+                          onClick={() => handleSwitch(log.exerciseId)}
+                          aria-label={`Faire ${frenchName(exerciseDef.name)} maintenant`}
+                          title={`Faire maintenant — ${currentStep ? frenchName(currentStep.exerciseName) : "l'exercice en cours"} reprendra juste après`}
+                          className="shrink-0 rounded-full border border-accent/50 px-2 py-0.5 text-[0.65rem] text-accent transition hover:bg-accent-soft"
+                        >
+                          Maintenant ▸
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setEditing(log.exerciseId)}
@@ -611,6 +667,43 @@ export function SessionRunner({
           </div>
         ))}
       </div>
+
+      {switching && currentStep && (
+        <Modal title="Faire un autre exercice d'abord" onClose={() => setSwitching(false)}>
+          <p className="mb-3 text-[0.78rem] text-muted">
+            « {frenchName(currentStep.exerciseName)} » reprendra juste après celui que tu choisis.
+          </p>
+          <ul className="flex flex-col gap-2 overflow-y-auto">
+            {switchTargets.map(({ exercise: exerciseDef, log, superset, sectionTitle }) => {
+              const left = log.sets.filter((s) => !s.completed).length;
+              return (
+                <li key={log.exerciseId}>
+                  <button
+                    type="button"
+                    onClick={() => handleSwitch(log.exerciseId)}
+                    className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-surface2 px-3 py-2.5 text-left transition hover:border-accent"
+                  >
+                    <span className="flex flex-col">
+                      <span className="flex items-center gap-1.5 text-[0.85rem] text-text">
+                        {superset && (
+                          <span className="rounded-full border border-accent2/50 px-1.5 text-[0.6rem] tracking-[0.08em] text-accent2 uppercase">
+                            SS {letters.get(superset)}
+                          </span>
+                        )}
+                        {frenchName(exerciseDef.name)}
+                      </span>
+                      <span className="text-[0.68rem] text-muted">{sectionTitle}</span>
+                    </span>
+                    <span className="shrink-0 text-[0.72rem] text-muted">
+                      {left} série{left > 1 ? "s" : ""}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </Modal>
+      )}
 
       {editingItem && (
         <SessionExerciseEditor

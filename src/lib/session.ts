@@ -169,6 +169,33 @@ export function leaveInSession(session: SessionLog, exerciseId: string): Session
   return { ...session, exercises: leaveSuperset(session.exercises, (e) => e.exerciseId, exerciseId) };
 }
 
+/** L'exercice et ses partenaires de super-set : ce qui se déplace d'un bloc. */
+function blockOf(session: SessionLog, exerciseId: string): Set<string> {
+  const key = session.exercises.find((e) => e.exerciseId === exerciseId)?.superset;
+  return new Set(
+    session.exercises
+      .filter((e) => e.exerciseId === exerciseId || (key !== undefined && e.superset === key))
+      .map((e) => e.exerciseId)
+  );
+}
+
+/**
+ * Fait passer un exercice avant un autre — la machine prévue est prise, on
+ * avance celui qui est libre. Le journal suit l'ordre réel de la séance : le
+ * déroulé enchaîne l'exercice avancé, puis reprend celui qu'on a laissé.
+ * Un super-set se déplace en entier, des deux côtés ; avancer un exercice du
+ * même bloc ou inconnu ne change rien.
+ */
+export function bringForward(session: SessionLog, exerciseId: string, beforeExerciseId: string): SessionLog {
+  const moved = blockOf(session, exerciseId);
+  const anchor = blockOf(session, beforeExerciseId);
+  if (moved.size === 0 || anchor.size === 0 || [...moved].some((id) => anchor.has(id))) return session;
+  const block = session.exercises.filter((e) => moved.has(e.exerciseId));
+  const rest = session.exercises.filter((e) => !moved.has(e.exerciseId));
+  const at = rest.findIndex((e) => anchor.has(e.exerciseId));
+  return { ...session, exercises: [...rest.slice(0, at), ...block, ...rest.slice(at)] };
+}
+
 /** Les exercices de la séance regroupés par catégorie, dans l'ordre d'apparition. */
 export function groupBySection(plan: PlannedExercise[]): { title: string; items: PlannedExercise[] }[] {
   const groups: { title: string; items: PlannedExercise[] }[] = [];

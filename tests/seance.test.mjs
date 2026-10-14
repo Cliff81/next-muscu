@@ -1,8 +1,10 @@
 import {
   addExerciseToSession,
+  bringForward,
   buildSessionFromDay,
   freeSessionExerciseId,
   groupBySection,
+  linkInSession,
   removeExerciseFromSession,
   sessionPlan,
   sessionProgress,
@@ -57,6 +59,22 @@ const sansB = { ...day, sections: [{ ...day.sections[0], exercises: [day.section
 const plan = sessionPlan(sansB, session);
 eq("un exercice retiré du programme reste à faire", plan.map((p) => p.exercise.name), ["Barbell Bench Press", "Incline Dumbbell Press", "Pull-up"]);
 eq("sans fiche, il est hors programme et muet sur la cible", [plan[1].sectionTitle, plan[1].exercise.reps, plan[1].exercise.series], ["Hors programme", "", 3]);
+
+// --- machine prise : un autre exercice d'abord
+const ids = (s) => s.exercises.map((e) => e.exerciseId);
+eq("l'exercice avancé passe juste avant celui en cours", ids(bringForward(session, "j1-c", "j1-a")), ["j1-c", "j1-a", "j1-b"]);
+eq("en milieu de séance aussi", ids(bringForward(session, "j1-c", "j1-b")), ["j1-a", "j1-c", "j1-b"]);
+eq("avancer un exercice déjà devant ne le recule pas", ids(bringForward(session, "j1-a", "j1-b")), ["j1-a", "j1-b", "j1-c"]);
+eq("exercice inconnu : rien ne bouge", bringForward(session, "nope", "j1-a"), session);
+eq("sur lui-même : rien ne bouge", bringForward(session, "j1-a", "j1-a"), session);
+const fait = { ...session, exercises: session.exercises.map((e) => e.exerciseId === "j1-a" ? { ...e, sets: e.sets.map((s, i) => i === 0 ? { ...s, completed: true } : s) } : e) };
+eq("les séries déjà faites voyagent avec l'exercice", bringForward(fait, "j1-c", "j1-a").exercises[1].sets[0].completed, true);
+const avecDos = addExerciseToSession(session, "j1-c", "Dos", exo("ajout-1", "Face Pull"));
+const ss = linkInSession(avecDos, "j1-c", "ajout-1");
+eq("un super-set avancé se déplace en entier", ids(bringForward(ss, "ajout-1", "j1-b")), ["j1-a", "j1-c", "ajout-1", "j1-b"]);
+eq("on passe devant un super-set en entier", ids(bringForward(ss, "j1-b", "ajout-1")), ["j1-a", "j1-b", "j1-c", "ajout-1"]);
+eq("un partenaire du même super-set ne s'avance pas", bringForward(ss, "j1-c", "ajout-1"), ss);
+eq("la séance avancée garde sa fiche", sessionPlan(day, bringForward(avecDos, "ajout-1", "j1-a")).map((p) => p.sectionTitle), ["Dos", "Pectoraux", "Pectoraux", "Dos"]);
 
 console.log(ko ? `\n${ko} échec(s)` : "\nTout passe");
 process.exit(ko ? 1 : 0);

@@ -37,6 +37,7 @@ export default function SessionPage() {
     updateSet,
     addExercise,
     removeExercise,
+    moveBefore,
     linkSuperset,
     leaveSuperset,
     finish,
@@ -88,6 +89,7 @@ export default function SessionPage() {
             onUpdateSet={updateSet}
             onAddExercise={addExercise}
             onRemoveExercise={removeExercise}
+            onMoveBefore={moveBefore}
             onLinkSuperset={linkSuperset}
             onLeaveSuperset={leaveSuperset}
             onFinish={handleFinish}

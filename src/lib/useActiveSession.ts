@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   addExerciseToSession,
+  bringForward,
   buildSessionFromDay,
   leaveInSession,
   linkInSession,
@@ -72,6 +73,12 @@ export function useActiveSession(day: Day) {
     activeSessionStore.set(leaveInSession(current, exerciseId));
   }, []);
 
+  const moveBefore = useCallback((exerciseId: string, beforeExerciseId: string) => {
+    const current = activeSessionStore.get();
+    if (!current) return;
+    activeSessionStore.set(bringForward(current, exerciseId, beforeExerciseId));
+  }, []);
+
   const removeExercise = useCallback((exerciseId: string) => {
     const current = activeSessionStore.get();
     if (!current) return;
@@ -113,6 +120,7 @@ export function useActiveSession(day: Day) {
     updateSet,
     addExercise,
     removeExercise,
+    moveBefore,
     linkSuperset,
     leaveSuperset,
     finish,
